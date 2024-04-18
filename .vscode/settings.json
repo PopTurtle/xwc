@@ -1,0 +1,11 @@
+{
+    "files.associations": {
+        "wordcounter.h": "c",
+        "stdlib.h": "c",
+        "stdbool.h": "c",
+        "getopt.h": "c",
+        "unistd.h": "c",
+        "holdall.h": "c",
+        "hashtable.h": "c"
+    }
+}
