@@ -7,8 +7,9 @@
 #include "hashtable.h"
 #include "holdall.h"
 #include "wordcounter.h"
-
 #include <locale.h>
+
+// 
 
 #define STR(s)  #s
 #define XSTR(s) STR(s)//?
@@ -51,46 +52,78 @@
 #define ARGS__SORT_VAL_NONE 0
 
 
+// 
+
+
+typedef struct wordstream wordstream;
+struct wordstream {
+  char *filename;
+  bool is_stdin;
+  bool is_open;
+  FILE *stream;
+};
+//  struct args, args : représente les arguments de l'executable.
 typedef struct args args;
 struct args {
-  const char **file;
+  //  Les noms de fichiers passés (*file), et le nombre de fichier (filecount)
+  //const char **file;
+  wordstream **file;
   int filecount;
 
+  //  Défini si un filtre est appliqué, et si oui le nom du fichier du filtre
+  //    est associé à filter_fn
   bool filtered;
-  const char *filter_fn;
+  //const char *filter_fn;
+  wordstream *filter;
 
+  //  Défini si les caractères de ponctuations seront considérés
+  //    comme des espace
   bool only_alpha_num;
 
+  // Défini la longueur maximale d'un mot
+  size_t max_w_len;
+
+  //  Tri utilisé pour l'affichage des compteurs, qui est égal à une des
+  //    maccro-constantes de nom ARGS__SORT_VAL_*
   int sort_type;
+
+  // Défini si le tri se fait dans l'ordre inverse
   bool sort_reversed;
 };
 
 
-typedef struct textfile textfile;
-struct textfile {
-  char *filename;
-  FILE *curr_file;
-  bool is_stdin;
-  bool is_open;
-};
 
-void textfile_dispose(textfile **t);
-textfile *textfile_new(const char *filename, const char *default_fn);
-int textfile_popen(textfile *t);
-int textfile_pclose(textfile *t);
+//typedef struct textfile textfile;
+//struct textfile {
+//  char *filename;
+//  FILE *curr_file;
+//  bool is_stdin;
+//  bool is_open;
+//};
+
+//void textfile_dispose(textfile **t);
+//textfile *textfile_new(const char *filename, const char *default_fn);
+//int textfile_popen(textfile *t);
+//int textfile_pclose(textfile *t);
+
+
+wordstream *wordstream_new(const char *filename, const char *default_fn);
+wordstream *wordstream_stdin(const char *default_fn);
+void wordstream_pdispose(wordstream **w);
+int wordstream_popen(wordstream *w);
+int wordstream_pclose(wordstream *w);
+void wordstream_pfn(wordstream *w, FILE *stream);
 
 
 void args_dispose(args *a);
 args *args_init(int argc, char *argv[], int *error);
 
-
 static int rword_put(const word *w);
 static int rword_put_filter(const word *w);
 
-
-
 int main(int argc, char *argv[]) {
   int r = EXIT_SUCCESS;
+
   // Récupèration des arguments// !!!!!!!!!!!!!!!!!!!!!!!!!// !!!!!!!!!!!!!!!!!!!!!!!!!// !!!!!!!!!!!!!!!!!!!!!!!!!// !!!!!!!!!!!!!!!!!!!!!!!!!// !!!!!!!!!!!!!!!!!!!!!!!!!// !!!!!!!!!!!!!!!!!!!!!!!!!
   int arg_err;
   args *a = args_init(argc, argv, &arg_err); // !!!!!!!!!!!!!!!!!!!!!!!!!
@@ -113,20 +146,22 @@ int main(int argc, char *argv[]) {
 
   // Application du filtre si demandé
   if (a->filtered) {
-    textfile *tf = textfile_new(a->filter_fn, "restrict");
-    if (tf == NULL) {
+    wordstream *ws = a->filter;// wordstream_new(a->filter_fn, "restrict");
+    if (ws == NULL) {
       goto error_capacity;
     }
-    if (textfile_popen(tf) != 0) {
+    if (wordstream_popen(ws) != 0) {
       goto error_read;
     }
-    if (wc_file_add_filtered(wc, tf->curr_file) != 0) {
-      textfile_dispose(&tf);
+    int rf = wc_file_add_filtered(wc, ws->stream, a->max_w_len, a->only_alpha_num);
+    if (rf != 0) {
+      //wordstream_pdispose(&ws);
+      if (rf == 2) {
+        goto error_read;
+      }
       goto error_capacity;
     }
-    int r = textfile_pclose(tf);
-    textfile_dispose(&tf);
-    if (r != 0) {
+    if (wordstream_pclose(ws) != 0) {
       goto error_read;
     }
   }
@@ -134,19 +169,23 @@ int main(int argc, char *argv[]) {
   // Analyse des différents fichiers
   for (int i = 0; i < a->filecount; ++i) {
     int channel = START_CHANNEL + i;
-    textfile *t = textfile_new(a->file[i], "DEFAULT");
-    if (t ==  NULL) {
+    wordstream *ws = a->file[i]; //wordstream_new(a->file[i], "DEFAULT");
+    if (ws == NULL) {
       goto error_capacity;
     }
-    if (textfile_popen(t) != 0) {
+    if (wordstream_popen(ws) != 0) {
       goto error_read;
     }
-    if (wc_filecount(wc, t->curr_file, 0, a->only_alpha_num, channel) != 0) {
-      textfile_dispose(&t);
+    int rc = wc_filecount(wc, ws->stream, a->max_w_len, a->only_alpha_num, channel);
+    if (rc != 0) {
+      //wordstream_pdispose(&ws);
+      if (rc == 2) {
+        goto error_read;
+      }
       goto error_capacity;
     }
-    int r = textfile_pclose(t);
-    textfile_dispose(&t);
+    int r = wordstream_pclose(ws);
+    //wordstream_pdispose(&ws);
     if (r != 0) {
       goto error_read;
     }
@@ -167,19 +206,14 @@ int main(int argc, char *argv[]) {
 
   // Affiche les entetes
   if (a->filtered) { // - === "" !! !! ! !!
-    printf("%s\t", a->filter_fn);
-  } else {
-    fputc('\t', stdin);
+    wordstream_pfn(a->filter, stdout);
   }
+  fputc('\t', stdin);
   for (int i = 0; i < a->filecount; ++i) {
-    if (a->file[i][0] == '-') { // !!!!!!!!!!!!!!
-      printf("\"\"\t");
-      continue;
-    }
-    printf("%s\t", a->file[i]);
+    wordstream_pfn(a->file[i], stdout);
+    printf("\t");
   }
   fputc('\n', stdout);
-
 
   // AFFICHAGE DES COMPTEURS
 
@@ -250,12 +284,35 @@ static int rword_put_filter(const word *w) {
   XSTR(ARGS__SORT_TYPE) ":"
 
 
-#define ARGS__IFSORT(ARGS_PTR, SORT_TYPE) \
-  if (opt == CHR(ARGS__SORT_ ## SORT_TYPE) \
-      || (opt == CHR(ARGS__SORT_TYPE) \
-      && strcmp(optarg, ARGS__SORT_TYPE_ ## SORT_TYPE) == 0)) { \
-    ARGS_PTR->sort_type = ARGS__SORT_VAL_ ## SORT_TYPE; \
+#define ARGS__SORT_COND(SORT_TYPE) \
+     opt == CHR(ARGS__SORT_ ## SORT_TYPE) \
+  || (opt == CHR(ARGS__SORT_TYPE) \
+  && strcmp(optarg, ARGS__SORT_TYPE_ ## SORT_TYPE) == 0)
+
+
+// typedef struct args args;
+// struct args {
+//   wordstream **file;
+//   int filecount;
+
+//   bool filtered;
+//   wordstream *filter;
+
+//   bool only_alpha_num;
+//   size_t max_w_len;
+
+//   int sort_type;
+//   bool sort_reversed;
+// };
+
+int args__set_filtered(args *a, const char *filter_fn) {
+  a->filter = wordstream_new(filter_fn, "restrict");
+  if (a->filter == NULL) {
+    return -1;
   }
+  a->filtered = true;
+  return 0;
+}
 
 // NULL - check err, si err == NULL , si err == 0: capacity, si err autre, err
 args *args_init(int argc, char *argv[], int *error) {
@@ -268,9 +325,11 @@ args *args_init(int argc, char *argv[], int *error) {
     return NULL;
   }
 
+  // Valeurs par défaut
   a->filtered = false;
+  a->filter = NULL;
   a->only_alpha_num = false;
-  
+  a->max_w_len = 0;
   a->sort_type = ARGS__SORT_VAL_NONE;
   a->sort_reversed = false;
 
@@ -278,13 +337,13 @@ args *args_init(int argc, char *argv[], int *error) {
   printf("%c\n", CHR(ARGS__RESTRICT));/////////////////
   printf("%c\n", CHR(ARGS__ONLY_ALPHA_NUM));/////////////////
 
+
   int opt;
   opterr = 0;
   while ((opt = getopt(argc, argv, ARGS__OPT_STRING)) != -1) {
     printf("%d: %c / arg: %s\n", optind, opt, optarg); /////////////////
     if (opt == CHR(ARGS__RESTRICT)) {
-      a->filtered = true;
-      a->filter_fn = optarg;
+      args__set_filtered(a, optarg);
     } else if (opt == CHR(ARGS__ONLY_ALPHA_NUM)) {
       a->only_alpha_num = true;
     } else if (opt == CHR(ARGS__LIMIT_WLEN)) {
@@ -293,9 +352,13 @@ args *args_init(int argc, char *argv[], int *error) {
       a->sort_reversed = true;
     }
 
-    ARGS__IFSORT(a, LEXICAL)
-    else ARGS__IFSORT(a, NUMERIC)
-    else ARGS__IFSORT(a, NONE)
+    if (ARGS__SORT_COND(LEXICAL)) {
+      a->sort_type = ARGS__SORT_VAL_LEXICAL;
+    } else if (ARGS__SORT_COND(NUMERIC)) {
+      a->sort_type = ARGS__SORT_VAL_NUMERIC;
+    } else if (ARGS__SORT_COND(NONE)) {
+      a->sort_type =ARGS__SORT_VAL_NONE;
+    }
     else if (opt == CHR(ARGS__SORT_TYPE)) {
       printf("Tri inconnu au bataillon\n");/////////////////
     }
@@ -303,7 +366,7 @@ args *args_init(int argc, char *argv[], int *error) {
 
   printf("Sort type: %d Reversed: %d\n", a->sort_type, a->sort_reversed ? 1 : 0);/////////////////
 
-  // Récupère les noms des fichier
+  // Gestion des fichiers
   a->filecount = argc - optind;
   bool no_file = a->filecount == 0;
 
@@ -313,93 +376,215 @@ args *args_init(int argc, char *argv[], int *error) {
 
   a->file = malloc((size_t) (a->filecount) * sizeof *a->file);
   if (a->file == NULL) {
+    wordstream_pdispose(&a->filter);
     free(a);
     return NULL;
   }
 
-  printf("args::Files:\n");/////////////////
+  int tf = 0;
+  bool ec = false;
   if (no_file) {
-    a->file[0] = "-";
+    a->file[0] = wordstream_stdin("#1");
+    ++tf;
+    ec = a->file[0] == NULL;
   } else {
-    for (int i = 0; i < a->filecount; ++i) {
-      a->file[i] = argv[optind + i];
-      printf(" - %d : %s\n", i + 1, argv[optind + i]);/////////////////
+    for (; tf < a->filecount; ++tf) {
+      a->file[tf] = wordstream_new(argv[optind + tf], "DEFAULT");
+      if (a->file[tf] == NULL) {
+        ec = true;
+        break;
+      }
+      printf(" - %d : %s\n", tf + 1, argv[optind + tf]);/////////////////
     }
   }
 
-
+  if (ec) {
+    a->filecount = tf;
+    args_dispose(a);
+    return NULL;
+  }
   return a;
 }
 
 void args_dispose(args *a) {
+  for (int i = 0; i < a->filecount; ++i) {
+    wordstream_pdispose(&a->file[i]);
+  }
   free(a->file);
+  wordstream_pdispose(&a->filter);
   free(a);
 }
 
+// -------------------------------------------------------------------------------------------------------------------------
 
-void textfile_dispose(textfile **t) {
-  if ((*t)->is_open) {
-    textfile_pclose(*t);
-  }
-  free((*t)->filename);
-  free(*t);
-  *t = NULL;
-}
 
-textfile *textfile_new(const char *filename, const char *default_fn) {
-  textfile *t = malloc(sizeof *t);
-  if (t == NULL) {
+//typedef struct wordstream wordstream;
+//struct wordstream {
+//  char *filename;
+//  bool is_stdin;
+//  bool is_open;
+//  FILE *stream;
+//};
+//
+//typedef struct textfile textfile;
+//struct textfile {
+//  char *filename;
+//  FILE *curr_file;
+//  bool is_stdin;
+//  bool is_open;
+//};
+
+wordstream *wordstream_new(const char *filename, const char *default_fn) {
+  wordstream *w = malloc(sizeof *w);
+  if (w == NULL) {
     return NULL;
   }
-  t->is_stdin = strcmp(filename, "-") == 0;
-  const char *fn = t->is_stdin ? default_fn : filename;
+  // Défini s'il s'agit de l'entrée standard
+  w->is_stdin = *filename == '-';
+  const char *fn = w->is_stdin ? default_fn : filename;
+  // Copie le nom de fichier choisi
   char *s = malloc(strlen(fn) + 1);
   if (s == NULL) {
-    free(t);
+    free(w);
     return NULL;
   }
   strcpy(s, fn);
-  t->filename = s;
-  t->is_open = false;
-  return t;
+  w->filename = s;
+  w->is_open = false;
+  w->stream = NULL;
+  return w;
 }
 
-int textfile_popen(textfile *t) {
-    FILE *f;
-    if (t->is_stdin) {
-      // Read on stdin
-      f = stdin;
-      printf(
-          FORMAT_INPUT_START "--- starts reading for %s FILE"
-          FORMAT_INPUT_STOP "\n",
-          t->filename);
-    } else {
-      // Read a file
-      f = fopen(t->filename, "r");
-      if (!f) {
-        fprintf(stderr, "*** Could not open file: %s\n", t->filename);
-        return -1;
-      }
-    }
-    t->curr_file = f;
-    t->is_open = true;
-    return 0;
+wordstream *wordstream_stdin(const char *default_fn) {
+  return wordstream_new("-", default_fn);
 }
 
-int textfile_pclose(textfile *t) {
-    t->is_open = false;
-    if (!feof(t->curr_file)) {
-      fprintf(stderr, "*** ERR: %s\n", t->filename);
-    }
-    if (!t->is_stdin && fclose(t->curr_file) != 0) {
+void wordstream_pdispose(wordstream **w) {
+  if (*w == NULL) {
+    return;
+  }
+  if ((*w)->is_open) {
+    wordstream_pclose(*w);
+  }
+  free((*w)->filename);
+  free(*w);
+  *w = NULL;
+}
+
+int wordstream_popen(wordstream *w) {
+  if (w->is_open) {
+    return 1;
+  }
+  FILE *f;
+  if (w->is_stdin) {
+    f = stdin;
+    printf(
+      FORMAT_INPUT_START "--- starts reading for %s FILE"
+      FORMAT_INPUT_STOP "\n", w->filename
+    );
+  } else {
+    f = fopen(w->filename, "r");
+    if (!f) {
+      fprintf(stderr, "*** Could not open file: %s\n", w->filename);
       return -1;
     }
-    if (t->is_stdin) {
-      printf(
-          FORMAT_INPUT_START "--- ends reading for %s FILE"
-          FORMAT_INPUT_STOP "\n",
-          t->filename);
-      clearerr(stdin);
-    }
-    return 0;
+  }
+  w->stream = f;
+  w->is_open = true;
+  return 0;
 }
+
+int wordstream_pclose(wordstream *w) {
+  w->is_open = false;
+  if (!w->is_stdin && fclose(w->stream) != 0) {
+      fprintf(stderr, "*** Erreur lors de la fermeture du fichier: %s\n", w->filename);
+  }
+  if (w->is_stdin) {
+    printf(
+        FORMAT_INPUT_START "--- ends reading for %s FILE"
+        FORMAT_INPUT_STOP "\n",
+        w->filename);
+    clearerr(stdin);
+  }
+  return 0;
+}
+
+void wordstream_pfn(wordstream *w, FILE *stream) {
+  if (w->is_stdin) {
+    fprintf(stream, "\"\"");
+    return;
+  }
+  fprintf(stream, "%s", w->filename);
+}
+
+
+
+
+
+
+// void textfile_dispose(textfile **t) {
+//   if ((*t)->is_open) {
+//     textfile_pclose(*t);
+//   }
+//   free((*t)->filename);
+//   free(*t);
+//   *t = NULL;
+//}
+
+// textfile *textfile_new(const char *filename, const char *default_fn) {
+//   textfile *t = malloc(sizeof *t);
+//   if (t == NULL) {
+//     return NULL;
+//   }
+//   t->is_stdin = strcmp(filename, "-") == 0;
+//   const char *fn = t->is_stdin ? default_fn : filename;
+//   char *s = malloc(strlen(fn) + 1);
+//   if (s == NULL) {
+//     free(t);
+//     return NULL;
+//   }
+//   strcpy(s, fn);
+//   t->filename = s;
+//   t->is_open = false;
+//   return t;
+// }
+
+// int textfile_popen(textfile *t) {
+//     FILE *f;
+//     if (t->is_stdin) {
+//       // Read on stdin
+//       f = stdin;
+//       printf(
+//           FORMAT_INPUT_START "--- starts reading for %s FILE"
+//           FORMAT_INPUT_STOP "\n",
+//           t->filename);
+//     } else {
+//       // Read a file
+//       f = fopen(t->filename, "r");
+//       if (!f) {
+//         fprintf(stderr, "*** Could not open file: %s\n", t->filename);
+//         return -1;
+//       }
+//     }
+//     t->curr_file = f;
+//     t->is_open = true;
+//     return 0;
+// }
+
+// int textfile_pclose(textfile *t) {
+//     t->is_open = false;
+//     if (!feof(t->curr_file)) {
+//       fprintf(stderr, "*** ERR: %s\n", t->filename);
+//     }
+//     if (!t->is_stdin && fclose(t->curr_file) != 0) {
+//       return -1;
+//     }
+//     if (t->is_stdin) {
+//       printf(
+//           FORMAT_INPUT_START "--- ends reading for %s FILE"
+//           FORMAT_INPUT_STOP "\n",
+//           t->filename);
+//       clearerr(stdin);
+//     }
+//     return 0;
+// }

@@ -2,19 +2,21 @@
 
 #include "holdall.h"
 
-//  struct holdall, holdall : implantation par liste dynamique simplement
-//    chainée.
-
-//  Si la macroconstante HOLDALL_PUT_TAIL est définie et que sa macro-évaluation
-//    donne un entier non nul, l'insertion dans la liste a lieu en queue. Dans
-//    le cas contraire, elle a lieu en tête.
+//  struct holdall, holdall : implantation par tableau dynamique
 
 #include <limits.h>
 #include <stdint.h>
 
+//  HA__CAPACITY_MIN : Taille minimale (et celle d'origine) du tableau
+//    dynamique d'un fourretout
 #define HA__CAPACITY_MIN 4
+
+//  HA__CAPACITY_MUL : facteur par lequel est multipliée la taille du tableau
+//    dynamique d'un fourretout lorsque celui-ci est plein
 #define HA__CAPACITY_MUL 2
 
+
+//  Structure ------------------------------------------------------------------
 
 struct holdall {
   void **harr;
@@ -22,6 +24,11 @@ struct holdall {
   size_t count;
 };
 
+//  Fonction auxiliaire --------------------------------------------------------
+
+//  holdall_increase_capacity : multiplie la capacité du fourretout ha (c'est-
+//    à-dire la taille de son tableau) par HA__CAPACITY_MUL. Renvoie -1 en cas
+//    de dépassement de capacité, et ha reste inchangé. Renvoie sinon 0.
 int holdall__increase_capacity(holdall *ha) {
   if (ha->harr_size > SIZE_MAX / HA__CAPACITY_MUL) {
     return -1;
@@ -34,6 +41,8 @@ int holdall__increase_capacity(holdall *ha) {
   ha->harr_size *= HA__CAPACITY_MUL;
   return 0;
 }
+
+//  Fonctions ------------------------------------------------------------------
 
 holdall *holdall_empty(void) {
   holdall *ha = malloc(sizeof *ha);
@@ -102,6 +111,8 @@ int holdall_apply_context2(holdall *ha,
   }
   return 0;
 }
+
+//  Extension ------------------------------------------------------------------
 
 #if defined HOLDALL_WANT_EXT && HOLDALL_WANT_EXT != 0
 
