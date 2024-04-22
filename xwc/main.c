@@ -1,3 +1,6 @@
+
+
+
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -9,15 +12,20 @@
 #include "wordcounter.h"
 #include <locale.h>
 
-// 
+//  Macros ---------------------------------------------------------------------
 
+//  STR, XSTR : permet de transformé une macro-constante en une chaine de
+//    caractère qui contient son nom, sa valeur.
 #define STR(s)  #s
-#define XSTR(s) STR(s)//?
+#define XSTR(s) STR(s)
 
+//  CHR : Donne le premier caractère de la chaine dont le contenu est celui
+//    de la macro-constante qui lui est passée en paramètre ; du type int.
+#define CHR_AUX(s) ((int) ((#s)[0]))
+#define CHR(s) CHR_AUX(s)
 
-#define MAX_W_LEN 32//
-
-
+//  Les directives suivantes sont des "raccourcis" pour les format de couleurs
+//    ANSI
 #define BGCOLOR_WHITE "\x1b[107m"
 #define BGCOLOR_RESET "\x1b[49m"
 
@@ -27,16 +35,12 @@
 #define FORMAT_INPUT_START BGCOLOR_WHITE FGCOLOR_BLACK
 #define FORMAT_INPUT_STOP BGCOLOR_RESET FGCOLOR_RESET
 
-#define CHR_AUX(s) ((int) ((#s)[0]))
-#define CHR(s) CHR_AUX(s)
-
-
+//  ARGS__* : utilisées pour les paramètres de l'executable
 #define ARGS__RESTRICT r
 #define ARGS__ONLY_ALPHA_NUM p
 #define ARGS__LIMIT_WLEN i
 
 #define ARGS__SORT_REVERSE R
-
 #define ARGS__SORT_TYPE s
 
 #define ARGS__SORT_LEXICAL l
@@ -52,74 +56,105 @@
 #define ARGS__SORT_VAL_NONE 0
 
 
-// 
+//  Structures -----------------------------------------------------------------
 
-
+//  struct wordstream, wordstream : utilisé pour représenté un flux de texte,
+//    accessible par stream s'il a été ouvert (is_open). Il est soit égal à
+//    stdin, soit il s'agit du fichier de chemin filename, ouvert en mode
+//    lecture
+//  Les valeurs sont accessibles, mais le comportement devient indéterminé
+//    si elles sont modifiés en dehors des fonctions wordstream_*
 typedef struct wordstream wordstream;
 struct wordstream {
-  char *filename;
-  bool is_stdin;
-  bool is_open;
   FILE *stream;
+  bool is_open;
+  bool is_stdin;
+  char *filename;
 };
-//  struct args, args : représente les arguments de l'executable.
+
+//  struct args, args : représente les paramètres de l'executable.
+//  - file, filecount : les flux de textes à traiter et leur nombre.
+//  - filtered, filter : filtered est à true si le comptage des mots est filtré,
+//      si c'est le cas alors le filtre a utilisé est pointé par filter
+//  - only_alpha_num : défini si les caractère de ponctuation des mots lus
+//      doivent être considérés comme des espaces
+//  - max_w_len : Longueur maximale des mots lus, si un mot est plus long il
+//      coupé. Par défaut 0, qui représente l'absence de limite
+//  - sort_type : Tri utilisé pour l'affichage des compteurs, qui est égal à une
+//      des maccro-constantes de nom ARGS__SORT_VAL_*
+//  - sort_reversed : Défini si le tri se fait dans l'ordre inverse
 typedef struct args args;
 struct args {
-  //  Les noms de fichiers passés (*file), et le nombre de fichier (filecount)
-  //const char **file;
   wordstream **file;
   int filecount;
-
-  //  Défini si un filtre est appliqué, et si oui le nom du fichier du filtre
-  //    est associé à filter_fn
   bool filtered;
-  //const char *filter_fn;
   wordstream *filter;
-
-  //  Défini si les caractères de ponctuations seront considérés
-  //    comme des espace
   bool only_alpha_num;
-
-  // Défini la longueur maximale d'un mot
   size_t max_w_len;
-
-  //  Tri utilisé pour l'affichage des compteurs, qui est égal à une des
-  //    maccro-constantes de nom ARGS__SORT_VAL_*
   int sort_type;
-
-  // Défini si le tri se fait dans l'ordre inverse
   bool sort_reversed;
 };
 
+//  Fonctions ------------------------------------------------------------------
 
+//  Fonctions pour wordstream --------------------------------------------------
 
-//typedef struct textfile textfile;
-//struct textfile {
-//  char *filename;
-//  FILE *curr_file;
-//  bool is_stdin;
-//  bool is_open;
-//};
+//  wordstream_new : Initialise un flux de texte non ouvert. Si filename est la
+//    chaine "-" alors le flux représente l'entrée standard, is_stdin est à
+//    true, et son nom de fichier prends la valeur default_fn. Renvoie NULL en
+//    cas de dépassement de capacité, le nouveau flux sinon.
+static wordstream *wordstream_new(const char *filename, const char *default_fn);
 
-//void textfile_dispose(textfile **t);
-//textfile *textfile_new(const char *filename, const char *default_fn);
-//int textfile_popen(textfile *t);
-//int textfile_pclose(textfile *t);
+//  wordstream_stdin : Initialise un flux de texte qui est l'entrée standard, et
+//    dont le nom de de fichier défaut est default_fn. Renvoie NULL en cas de
+//    dépassement de capacité, le nouveau flux sinon.
+static wordstream *wordstream_stdin(const char *default_fn);
 
+//  wordstream_pdispose : sans effet si w vaut NULL, sinon libère les ressources
+//    nécessaire à la gestion du flux pointé par *w, puis affecte NULL à *w
+static void wordstream_pdispose(wordstream **w);
 
-wordstream *wordstream_new(const char *filename, const char *default_fn);
-wordstream *wordstream_stdin(const char *default_fn);
-void wordstream_pdispose(wordstream **w);
-int wordstream_popen(wordstream *w);
-int wordstream_pclose(wordstream *w);
-void wordstream_pfn(wordstream *w, FILE *stream);
+//  wordsteam_popen : tente d'ouvrir le flux associé à w. Renvoie 0 en cas de
+//    succès, 1 si le flux est déjà ouvert. En cas d'erreur, affiche un message
+//    sur la sortie erreur, et renvoie -1.
+static int wordstream_popen(wordstream *w);
 
+//  wordstream_pclose : Tente de fermer le flux w. Affiche un message sur la
+//    sortie erreur et renvoie -1 en cas d'erreur de fermeture. Sinon le flux
+//    est correctement fermé et 0 est renvoyé.
+static int wordstream_pclose(wordstream *w);
 
-void args_dispose(args *a);
-args *args_init(int argc, char *argv[], int *error);
+//  wordstream_pfn : Affiche le nom de fichier associé au flux w sur la sortie
+//    stream. Ce nom est le nom du fichier lu, ou "" s'il s'agit de l'entrée
+//    standard.
+static void wordstream_pfn(wordstream *w, FILE *stream);
 
+//  Fonctions pour args --------------------------------------------------------
+
+//  args_init : tente d'allouer les ressources pour stocké les paramètre données
+//    par argc, argv. Renvoie NULL en cas d'erreur, renvoie sinon la structure
+//    nouvellement allouée.
+//  En cas d'erreur un code d'erreur est associé à error, qui ne doit pas être
+//    NULL. 0 en cas de dépassement de capacité. //////////////////////////////////////////////////////////////////////////////
+static args *args_init(int argc, char *argv[], int *error);
+
+//  args_dispose : Libère les ressources nécessaire à la gestion de *a. Le
+//    pointeur a réfèrence après appel une zone non allouée.
+static void args_dispose(args *a);
+
+//  Fonctions auxiliaires ------------------------------------------------------
+
+//  rword_put : Sans effet si le canal de w vaut MULTI_CHANNEL. Sinon affiche le
+//    mot w sur la sortie standard, précédé d'un nombre de tabulation cohérent
+//    par rapport à son canal. Affiche ensuite le nombre d'occurences de ce mot
+//    puis saute à la ligne. Renvoie 0 dans tous les cas.
 static int rword_put(const word *w);
+
+//  rword_put_filter : similaire à rword_put, mais n'affiche que les mots dont
+//    le canal est différent de MULTI_CHANNEL et UNDEFINED_CHANNEL
 static int rword_put_filter(const word *w);
+
+//  Main -----------------------------------------------------------------------
 
 int main(int argc, char *argv[]) {
   int r = EXIT_SUCCESS;
@@ -242,17 +277,16 @@ dispose:
   return r;
 }
 
+//  Définitions des fonctions --------------------------------------------------
 
-
-
-
+//  DISPLAY_WORD : affiche le mot w, son compteur d'occurences et un saut de
+//    lignes, le tout précédé de tabulations en fonction du canal de w.
 #define DISPLAY_WORD(w)                                                        \
   printf("%s\t", word_str(w));                                                 \
-  for (int k = word_channel(w); k > 1; --k) {                                  \
+  for (int k = word_channel(w); k > START_CHANNEL; --k) {                      \
     fputc('\t', stdout);                                                       \
   }                                                                            \
-  printf("%zu\n", word_count(w));                                              \
-
+  printf("%zu\n", word_count(w));
 
 static int rword_put(const word *w) {
   if (word_channel(w) == MULTI_CHANNEL) {
@@ -270,9 +304,96 @@ static int rword_put_filter(const word *w) {
   return 0;
 }
 
+//  ----------------------------------------------------------------------------
 
+wordstream *wordstream_new(const char *filename, const char *default_fn) {
+  wordstream *w = malloc(sizeof *w);
+  if (w == NULL) {
+    return NULL;
+  }
+  // Défini s'il s'agit de l'entrée standard
+  w->is_stdin = *filename == '-';
+  const char *fn = w->is_stdin ? default_fn : filename;
+  // Copie le nom de fichier choisi
+  char *s = malloc(strlen(fn) + 1);
+  if (s == NULL) {
+    free(w);
+    return NULL;
+  }
+  strcpy(s, fn);
+  w->filename = s;
+  w->is_open = false;
+  w->stream = NULL;
+  return w;
+}
 
+wordstream *wordstream_stdin(const char *default_fn) {
+  return wordstream_new("-", default_fn);
+}
 
+void wordstream_pdispose(wordstream **w) {
+  if (*w == NULL) {
+    return;
+  }
+  if ((*w)->is_open) {
+    wordstream_pclose(*w);
+  }
+  free((*w)->filename);
+  free(*w);
+  *w = NULL;
+}
+
+int wordstream_popen(wordstream *w) {
+  if (w->is_open) {
+    return 1;
+  }
+  FILE *f;
+  if (w->is_stdin) {
+    f = stdin;
+    printf(
+      FORMAT_INPUT_START "--- starts reading for %s FILE"
+      FORMAT_INPUT_STOP "\n", w->filename
+    );
+  } else {
+    f = fopen(w->filename, "r");
+    if (!f) {
+      fprintf(stderr, "*** Could not open file: %s\n", w->filename);
+      return -1;
+    }
+  }
+  w->stream = f;
+  w->is_open = true;
+  return 0;
+}
+
+int wordstream_pclose(wordstream *w) {
+  w->is_open = false;
+  if (!w->is_stdin && fclose(w->stream) != 0) {
+      fprintf(stderr, "*** Erreur lors de la fermeture du fichier: %s\n", w->filename);
+      return -1;
+  }
+  if (w->is_stdin) {
+    printf(
+        FORMAT_INPUT_START "--- ends reading for %s FILE"
+        FORMAT_INPUT_STOP "\n",
+        w->filename);
+    clearerr(stdin);
+  }
+  return 0;
+}
+
+void wordstream_pfn(wordstream *w, FILE *stream) {
+  if (w->is_stdin) {
+    fprintf(stream, "\"\"");
+    return;
+  }
+  fprintf(stream, "%s", w->filename);
+}
+
+//  ----------------------------------------------------------------------------
+
+//  Représente la chaine de caractère des options de l'executable, à passer
+//    à getopt.
 #define ARGS__OPT_STRING \
   XSTR(ARGS__RESTRICT) ":" \
   XSTR(ARGS__ONLY_ALPHA_NUM) \
@@ -283,29 +404,21 @@ static int rword_put_filter(const word *w) {
   XSTR(ARGS__SORT_NONE) \
   XSTR(ARGS__SORT_TYPE) ":"
 
+//  ARGS__SORT_COND : on suppose qu'il existe un entier opt qui est l'option en
+//    cours de traitement. L'expression vaut true si cette option (et sa valeur
+//    si besoin) correspond au tri SORT_TYPE.
+#define ARGS__SORT_COND(SORT_TYPE)                                             \
+  (                                                                            \
+  opt == CHR(ARGS__SORT_ ## SORT_TYPE)                                         \
+  || (                                                                         \
+     opt == CHR(ARGS__SORT_TYPE)                                               \
+     && strcmp(optarg, ARGS__SORT_TYPE_ ## SORT_TYPE) == 0                     \
+     )                                                                         \
+  )
 
-#define ARGS__SORT_COND(SORT_TYPE) \
-     opt == CHR(ARGS__SORT_ ## SORT_TYPE) \
-  || (opt == CHR(ARGS__SORT_TYPE) \
-  && strcmp(optarg, ARGS__SORT_TYPE_ ## SORT_TYPE) == 0)
-
-
-// typedef struct args args;
-// struct args {
-//   wordstream **file;
-//   int filecount;
-
-//   bool filtered;
-//   wordstream *filter;
-
-//   bool only_alpha_num;
-//   size_t max_w_len;
-
-//   int sort_type;
-//   bool sort_reversed;
-// };
-
-int args__set_filtered(args *a, const char *filter_fn) {
+//  args__set_filtered : défini l'option "filtré" de a à true, avec comme filtre
+//    le fichier de nom filter_fn.
+static int args__set_filtered(args *a, const char *filter_fn) {
   a->filter = wordstream_new(filter_fn, "restrict");
   if (a->filter == NULL) {
     return -1;
@@ -313,6 +426,8 @@ int args__set_filtered(args *a, const char *filter_fn) {
   a->filtered = true;
   return 0;
 }
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // NULL - check err, si err == NULL , si err == 0: capacity, si err autre, err
 args *args_init(int argc, char *argv[], int *error) {
@@ -406,6 +521,8 @@ args *args_init(int argc, char *argv[], int *error) {
   return a;
 }
 
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 void args_dispose(args *a) {
   for (int i = 0; i < a->filecount; ++i) {
     wordstream_pdispose(&a->file[i]);
@@ -414,177 +531,3 @@ void args_dispose(args *a) {
   wordstream_pdispose(&a->filter);
   free(a);
 }
-
-// -------------------------------------------------------------------------------------------------------------------------
-
-
-//typedef struct wordstream wordstream;
-//struct wordstream {
-//  char *filename;
-//  bool is_stdin;
-//  bool is_open;
-//  FILE *stream;
-//};
-//
-//typedef struct textfile textfile;
-//struct textfile {
-//  char *filename;
-//  FILE *curr_file;
-//  bool is_stdin;
-//  bool is_open;
-//};
-
-wordstream *wordstream_new(const char *filename, const char *default_fn) {
-  wordstream *w = malloc(sizeof *w);
-  if (w == NULL) {
-    return NULL;
-  }
-  // Défini s'il s'agit de l'entrée standard
-  w->is_stdin = *filename == '-';
-  const char *fn = w->is_stdin ? default_fn : filename;
-  // Copie le nom de fichier choisi
-  char *s = malloc(strlen(fn) + 1);
-  if (s == NULL) {
-    free(w);
-    return NULL;
-  }
-  strcpy(s, fn);
-  w->filename = s;
-  w->is_open = false;
-  w->stream = NULL;
-  return w;
-}
-
-wordstream *wordstream_stdin(const char *default_fn) {
-  return wordstream_new("-", default_fn);
-}
-
-void wordstream_pdispose(wordstream **w) {
-  if (*w == NULL) {
-    return;
-  }
-  if ((*w)->is_open) {
-    wordstream_pclose(*w);
-  }
-  free((*w)->filename);
-  free(*w);
-  *w = NULL;
-}
-
-int wordstream_popen(wordstream *w) {
-  if (w->is_open) {
-    return 1;
-  }
-  FILE *f;
-  if (w->is_stdin) {
-    f = stdin;
-    printf(
-      FORMAT_INPUT_START "--- starts reading for %s FILE"
-      FORMAT_INPUT_STOP "\n", w->filename
-    );
-  } else {
-    f = fopen(w->filename, "r");
-    if (!f) {
-      fprintf(stderr, "*** Could not open file: %s\n", w->filename);
-      return -1;
-    }
-  }
-  w->stream = f;
-  w->is_open = true;
-  return 0;
-}
-
-int wordstream_pclose(wordstream *w) {
-  w->is_open = false;
-  if (!w->is_stdin && fclose(w->stream) != 0) {
-      fprintf(stderr, "*** Erreur lors de la fermeture du fichier: %s\n", w->filename);
-  }
-  if (w->is_stdin) {
-    printf(
-        FORMAT_INPUT_START "--- ends reading for %s FILE"
-        FORMAT_INPUT_STOP "\n",
-        w->filename);
-    clearerr(stdin);
-  }
-  return 0;
-}
-
-void wordstream_pfn(wordstream *w, FILE *stream) {
-  if (w->is_stdin) {
-    fprintf(stream, "\"\"");
-    return;
-  }
-  fprintf(stream, "%s", w->filename);
-}
-
-
-
-
-
-
-// void textfile_dispose(textfile **t) {
-//   if ((*t)->is_open) {
-//     textfile_pclose(*t);
-//   }
-//   free((*t)->filename);
-//   free(*t);
-//   *t = NULL;
-//}
-
-// textfile *textfile_new(const char *filename, const char *default_fn) {
-//   textfile *t = malloc(sizeof *t);
-//   if (t == NULL) {
-//     return NULL;
-//   }
-//   t->is_stdin = strcmp(filename, "-") == 0;
-//   const char *fn = t->is_stdin ? default_fn : filename;
-//   char *s = malloc(strlen(fn) + 1);
-//   if (s == NULL) {
-//     free(t);
-//     return NULL;
-//   }
-//   strcpy(s, fn);
-//   t->filename = s;
-//   t->is_open = false;
-//   return t;
-// }
-
-// int textfile_popen(textfile *t) {
-//     FILE *f;
-//     if (t->is_stdin) {
-//       // Read on stdin
-//       f = stdin;
-//       printf(
-//           FORMAT_INPUT_START "--- starts reading for %s FILE"
-//           FORMAT_INPUT_STOP "\n",
-//           t->filename);
-//     } else {
-//       // Read a file
-//       f = fopen(t->filename, "r");
-//       if (!f) {
-//         fprintf(stderr, "*** Could not open file: %s\n", t->filename);
-//         return -1;
-//       }
-//     }
-//     t->curr_file = f;
-//     t->is_open = true;
-//     return 0;
-// }
-
-// int textfile_pclose(textfile *t) {
-//     t->is_open = false;
-//     if (!feof(t->curr_file)) {
-//       fprintf(stderr, "*** ERR: %s\n", t->filename);
-//     }
-//     if (!t->is_stdin && fclose(t->curr_file) != 0) {
-//       return -1;
-//     }
-//     if (t->is_stdin) {
-//       printf(
-//           FORMAT_INPUT_START "--- ends reading for %s FILE"
-//           FORMAT_INPUT_STOP "\n",
-//           t->filename);
-//       clearerr(stdin);
-//     }
-//     return 0;
-// }
