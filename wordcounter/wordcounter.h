@@ -79,9 +79,6 @@ extern wordcounter *wc_empty(bool filtered);
 //    allouées pour la gestion du compteur de mots, puis affecte NULL à *w.
 extern void wc_dispose(wordcounter **w);
 
-
-
-
 //  wc_addcount : incrémente le compteur associé au mot égal à la chaine pointé
 //    par s. Le canal associé au mot est mis à jour si nécessaire : s'il est
 //    indéfini, il prend la valeur de channel; s'il est égal à channel ou qu'il

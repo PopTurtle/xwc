@@ -156,16 +156,6 @@ static int word__compare_lexical_reverse(const word **w1ptr, const word **w2ptr)
 //    un fichier lorsque ce buffer est plein
 #define WC__BUFSIZE_MUL 2
 
-// pour le moment : affiche chaque mot sur la sortie standard
-// max_word_len = 0 : infini
-
-// Renvoie :
-// 0 = Tout est ok
-// 1 = error capacity
-// 2 = error stream = error read
-// 3 = error fun
-
-
 //  wc__file_word_apply : parcours le flux pointé par stream et appel
 //    fun(w, WORD, c_int) pour tout les mots WORD lus dans le flux, tant que
 //    l'appel à fun renvoie une valeur nulle. Si only_alpha_num est à true alors
