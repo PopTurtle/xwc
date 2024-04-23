@@ -6,8 +6,7 @@ CFLAGS = -std=c2x \
   -Wall -Wconversion -Werror -Wextra -Wpedantic -Wwrite-strings \
   -O0 -g \
   -I$(hashtable_dir) -I$(holdall_dir) -I$(wordcounter_dir) \
-  -DHASHTABLE_STATS=0 \
-  -DHOLDALL_PUT_TAIL=1
+  -DHASHTABLE_STATS=0
 vpath %.c $(hashtable_dir) $(holdall_dir) $(wordcounter_dir)
 vpath %.h $(hashtable_dir) $(holdall_dir) $(wordcounter_dir)
 objects = main.o hashtable.o holdall.o wordcounter.o

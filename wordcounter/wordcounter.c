@@ -167,7 +167,13 @@ static int word__compare_lexical_reverse(const word **w1ptr, const word **w2ptr)
 //    une valeur différente de 0.
 static int wc__file_word_apply(FILE *stream, wordcounter *w, size_t max_w_len, bool only_alpha_num, int c_int, int (*fun)(wordcounter *, const char *, int)) {
   size_t cur_buff_size = max_w_len == 0 ? WC__BUFSIZE_MIN : max_w_len;
+  if (cur_buff_size > SIZE_MAX - 1) {
+    return 1;
+  }
   char *buff = malloc(cur_buff_size + 1);
+  if (buff == NULL) {
+    return 1;
+  }
   size_t cur_w_len = 0;
   int c;
   while ((c = fgetc(stream)) != EOF) {

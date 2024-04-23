@@ -12,6 +12,10 @@
 #include "wordcounter.h"
 #include <locale.h>
 
+#include <errno.h>
+
+
+
 //  Macros ---------------------------------------------------------------------
 
 //  STR, XSTR : permet de transformé une macro-constante en une chaine de
@@ -134,7 +138,7 @@ static void wordstream_pfn(wordstream *w, FILE *stream);
 //  args_init : tente d'allouer les ressources pour stocké les paramètre données
 //    par argc, argv. Renvoie NULL en cas d'erreur, renvoie sinon la structure
 //    nouvellement allouée.
-//  En cas d'erreur un code d'erreur est associé à error, qui ne doit pas être
+//  En cas d'erreur un code d'erreur est associé à error, qui ne doit pas être // peut Afficher un message d'erreur
 //    NULL. 0 en cas de dépassement de capacité. //////////////////////////////////////////////////////////////////////////////
 static args *args_init(int argc, char *argv[], int *error);
 
@@ -163,12 +167,12 @@ int main(int argc, char *argv[]) {
   int arg_err;
   args *a = args_init(argc, argv, &arg_err); // !!!!!!!!!!!!!!!!!!!!!!!!!
   if (arg_err != 0) {
-    // Arguments incohérents
     return EXIT_FAILURE;
   }
   if (a == NULL) {
     goto error_capacity;
   }
+
 
   // Locale
   setlocale(LC_COLLATE, "");
@@ -394,7 +398,7 @@ void wordstream_pfn(wordstream *w, FILE *stream) {
 
 //  Représente la chaine de caractère des options de l'executable, à passer
 //    à getopt.
-#define ARGS__OPT_STRING \
+#define ARGS__OPT_STRING ":" \
   XSTR(ARGS__RESTRICT) ":" \
   XSTR(ARGS__ONLY_ALPHA_NUM) \
   XSTR(ARGS__LIMIT_WLEN) ":" \
@@ -417,7 +421,8 @@ void wordstream_pfn(wordstream *w, FILE *stream) {
   )
 
 //  args__set_filtered : défini l'option "filtré" de a à true, avec comme filtre
-//    le fichier de nom filter_fn.
+//    le fichier de nom filter_fn. Renvoie -1 en cas de dépassement de capacité,
+//    sinon renvoie 0.
 static int args__set_filtered(args *a, const char *filter_fn) {
   a->filter = wordstream_new(filter_fn, "restrict");
   if (a->filter == NULL) {
@@ -429,97 +434,233 @@ static int args__set_filtered(args *a, const char *filter_fn) {
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// NULL - check err, si err == NULL , si err == 0: capacity, si err autre, err
+// RENVOIE 0 SUCCES -1 ERREUR
+static int args__get_size_t(size_t *k, const char *s) {
+  if (*s == '-') {
+    return 1;
+  }
+  errno = 0;
+  char *end = NULL;
+  unsigned long long m = strtoull(s, &end, 10);
+  if (errno != 0 || end == s || *end != '\0') {
+    return -1;
+  }
+  *k = (size_t)m;
+  return 0;
+}
+
+
+
+// typedef struct args args;
+// struct args {
+//   wordstream **file;
+//   int filecount;
+//   bool filtered;
+//   wordstream *filter;
+//   bool only_alpha_num;
+//   size_t max_w_len;
+//   int sort_type;
+//   bool sort_reversed;
+// };
+
+void args_print(args *a) {
+  printf("Filecount: %d\n", a->filecount);
+  printf("Fichiers :\n");
+  for (int i = 0; i < a->filecount; ++i) {
+    printf("- %s\n", a->file[i]->filename);
+  }
+  printf("MAX W LEN : %zu\n", a->max_w_len);
+}
+
+
+
+
+
+
 args *args_init(int argc, char *argv[], int *error) {
   if (error == NULL) {
     return NULL;
   }
+  int alloc_ws = 0;
   *error = 0;
+  // Création avec valeurs par défaut
   args *a = malloc(sizeof *a);
   if (a == NULL) {
     return NULL;
   }
-
-  // Valeurs par défaut
   a->filtered = false;
   a->filter = NULL;
   a->only_alpha_num = false;
   a->max_w_len = 0;
   a->sort_type = ARGS__SORT_VAL_NONE;
   a->sort_reversed = false;
-
-  printf("OPT STRING: %s\n", ARGS__OPT_STRING);/////////////////
-  printf("%c\n", CHR(ARGS__RESTRICT));/////////////////
-  printf("%c\n", CHR(ARGS__ONLY_ALPHA_NUM));/////////////////
-
-
+  // Récupération des valeurs des arguments
   int opt;
   opterr = 0;
   while ((opt = getopt(argc, argv, ARGS__OPT_STRING)) != -1) {
-    printf("%d: %c / arg: %s\n", optind, opt, optarg); /////////////////
     if (opt == CHR(ARGS__RESTRICT)) {
-      args__set_filtered(a, optarg);
+      if (args__set_filtered(a, optarg) != 0) {
+        goto ai__error_capacity;
+      }
     } else if (opt == CHR(ARGS__ONLY_ALPHA_NUM)) {
       a->only_alpha_num = true;
     } else if (opt == CHR(ARGS__LIMIT_WLEN)) {
-      printf("Want to limit w len to %s\n", optarg);/////////////////
+      if (args__get_size_t(&a->max_w_len, optarg) != 0) {
+        fprintf(stderr, "*** Invalid argument: -%c %s\n", (char)opt, optarg);
+        goto ai__error_arg;
+      }
     } else if (opt == CHR(ARGS__SORT_REVERSE)) {
       a->sort_reversed = true;
-    }
-
-    if (ARGS__SORT_COND(LEXICAL)) {
+    } else if (ARGS__SORT_COND(LEXICAL)) {
       a->sort_type = ARGS__SORT_VAL_LEXICAL;
     } else if (ARGS__SORT_COND(NUMERIC)) {
       a->sort_type = ARGS__SORT_VAL_NUMERIC;
     } else if (ARGS__SORT_COND(NONE)) {
       a->sort_type =ARGS__SORT_VAL_NONE;
-    }
-    else if (opt == CHR(ARGS__SORT_TYPE)) {
-      printf("Tri inconnu au bataillon\n");/////////////////
+    } else if (opt == CHR(ARGS__SORT_TYPE)) {
+      // Le tri n'est pas reconnu
+      fprintf(stderr, "*** Unrecognised expression: -%c %s\n", (char)opt, optarg);
+      goto ai__error_arg;
+    } else if (opt == ':') {
+      fprintf(stderr, "*** Missing argument: %s\n", argv[optind - 1]);
+      goto ai__error_arg;
+    } else {
+      fprintf(stderr, "*** Unknown argument: %s\n", argv[optind - 1]);
+      goto ai__error_arg;
     }
   }
-
-  printf("Sort type: %d Reversed: %d\n", a->sort_type, a->sort_reversed ? 1 : 0);/////////////////
-
   // Gestion des fichiers
   a->filecount = argc - optind;
   bool no_file = a->filecount == 0;
-
   if (no_file) {
     a->filecount = 1;
   }
-
   a->file = malloc((size_t) (a->filecount) * sizeof *a->file);
   if (a->file == NULL) {
-    wordstream_pdispose(&a->filter);
-    free(a);
-    return NULL;
+    goto ai__error_capacity;
   }
-
-  int tf = 0;
-  bool ec = false;
   if (no_file) {
     a->file[0] = wordstream_stdin("#1");
-    ++tf;
-    ec = a->file[0] == NULL;
+    if (a->file[0] == NULL) {
+      goto ai__error_capacity;
+    }
   } else {
-    for (; tf < a->filecount; ++tf) {
-      a->file[tf] = wordstream_new(argv[optind + tf], "DEFAULT");
-      if (a->file[tf] == NULL) {
-        ec = true;
-        break;
+    for (; alloc_ws < a->filecount; ++alloc_ws) {
+      a->file[alloc_ws] = wordstream_new(argv[optind + alloc_ws], "DEFAULT");
+      if (a->file[alloc_ws] == NULL) {
+        goto ai__error_capacity;
       }
-      printf(" - %d : %s\n", tf + 1, argv[optind + tf]);/////////////////
     }
   }
-
-  if (ec) {
-    a->filecount = tf;
-    args_dispose(a);
-    return NULL;
-  }
+  args_print(a);
   return a;
+ai__error_arg:
+  *error = -1;
+ai__error_capacity:
+  if (a->file != NULL) {
+    for (int i = 0; i < alloc_ws; ++i) {
+      wordstream_pdispose(&a->file[i]);
+    }
+    free(a->file);
+  }
+  wordstream_pdispose(&a->filter);
+  free(a);
+  return NULL;
 }
+
+
+
+// NULL - check err, si err == NULL , si err == 0: capacity, si err autre, err
+// args *args_init(int argc, char *argv[], int *error) {
+//   if (error == NULL) {
+//     return NULL;
+//   }
+//   *error = 0;
+//   args *a = malloc(sizeof *a);
+//   if (a == NULL) {
+//     return NULL;
+//   }
+
+//   // Valeurs par défaut
+//   a->filtered = false;
+//   a->filter = NULL;
+//   a->only_alpha_num = false;
+//   a->max_w_len = 0;
+//   a->sort_type = ARGS__SORT_VAL_NONE;
+//   a->sort_reversed = false;
+
+//   printf("OPT STRING: %s\n", ARGS__OPT_STRING);/////////////////
+//   printf("%c\n", CHR(ARGS__RESTRICT));/////////////////
+//   printf("%c\n", CHR(ARGS__ONLY_ALPHA_NUM));/////////////////
+
+
+//   int opt;
+//   opterr = 0;
+//   while ((opt = getopt(argc, argv, ARGS__OPT_STRING)) != -1) {
+//     printf("%d: %c / arg: %s\n", optind, opt, optarg); /////////////////
+//     if (opt == CHR(ARGS__RESTRICT)) {
+//       args__set_filtered(a, optarg);
+//     } else if (opt == CHR(ARGS__ONLY_ALPHA_NUM)) {
+//       a->only_alpha_num = true;
+//     } else if (opt == CHR(ARGS__LIMIT_WLEN)) {
+//       printf("Want to limit w len to %s\n", optarg);/////////////////
+//     } else if (opt == CHR(ARGS__SORT_REVERSE)) {
+//       a->sort_reversed = true;
+//     }
+
+//     if (ARGS__SORT_COND(LEXICAL)) {
+//       a->sort_type = ARGS__SORT_VAL_LEXICAL;
+//     } else if (ARGS__SORT_COND(NUMERIC)) {
+//       a->sort_type = ARGS__SORT_VAL_NUMERIC;
+//     } else if (ARGS__SORT_COND(NONE)) {
+//       a->sort_type =ARGS__SORT_VAL_NONE;
+//     }
+//     else if (opt == CHR(ARGS__SORT_TYPE)) {
+//       printf("Tri inconnu au bataillon\n");/////////////////
+//     }
+//   }
+
+//   printf("Sort type: %d Reversed: %d\n", a->sort_type, a->sort_reversed ? 1 : 0);/////////////////
+
+//   // Gestion des fichiers
+//   a->filecount = argc - optind;
+//   bool no_file = a->filecount == 0;
+
+//   if (no_file) {
+//     a->filecount = 1;
+//   }
+
+//   a->file = malloc((size_t) (a->filecount) * sizeof *a->file);
+//   if (a->file == NULL) {
+//     wordstream_pdispose(&a->filter);
+//     free(a);
+//     return NULL;
+//   }
+
+//   int tf = 0;
+//   bool ec = false;
+//   if (no_file) {
+//     a->file[0] = wordstream_stdin("#1");
+//     ++tf;
+//     ec = a->file[0] == NULL;
+//   } else {
+//     for (; tf < a->filecount; ++tf) {
+//       a->file[tf] = wordstream_new(argv[optind + tf], "DEFAULT");
+//       if (a->file[tf] == NULL) {
+//         ec = true;
+//         break;
+//       }
+//       printf(" - %d : %s\n", tf + 1, argv[optind + tf]);/////////////////
+//     }
+//   }
+
+//   if (ec) {
+//     a->filecount = tf;
+//     args_dispose(a);
+//     return NULL;
+//   }
+//   return a;
+// }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
