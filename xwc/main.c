@@ -40,6 +40,8 @@
 #define FORMAT_INPUT_STOP BGCOLOR_RESET FGCOLOR_RESET
 
 //  ARGS__* : utilisées pour les paramètres de l'executable
+#define ARGS__HELP h
+
 #define ARGS__RESTRICT r
 #define ARGS__ONLY_ALPHA_NUM p
 #define ARGS__LIMIT_WLEN i
@@ -58,7 +60,6 @@
 #define ARGS__SORT_NONE S
 #define ARGS__SORT_TYPE_NONE "none"
 #define ARGS__SORT_VAL_NONE 0
-
 
 //  Structures -----------------------------------------------------------------
 
@@ -82,11 +83,12 @@ struct wordstream {
 //      si c'est le cas alors le filtre a utilisé est pointé par filter
 //  - only_alpha_num : défini si les caractère de ponctuation des mots lus
 //      doivent être considérés comme des espaces
-//  - max_w_len : Longueur maximale des mots lus, si un mot est plus long il
-//      coupé. Par défaut 0, qui représente l'absence de limite
-//  - sort_type : Tri utilisé pour l'affichage des compteurs, qui est égal à une
+//  - max_w_len : longueur maximale des mots lus, si un mot est plus long il
+//      coupé. par défaut 0, qui représente l'absence de limite
+//  - sort_type : tri utilisé pour l'affichage des compteurs, qui est égal à une
 //      des maccro-constantes de nom ARGS__SORT_VAL_*
-//  - sort_reversed : Défini si le tri se fait dans l'ordre inverse
+//  - sort_reversed : défini si le tri se fait dans l'ordre inverse
+//  - help : faut-il afficher l'aide ?
 typedef struct args args;
 struct args {
   wordstream **file;
@@ -138,7 +140,8 @@ static void wordstream_pfn(wordstream *w, FILE *stream);
 
 //  args_init : tente d'allouer les ressources pour stocké les paramètre données
 //    par argc, argv. Renvoie NULL en cas d'erreur, renvoie sinon la structure
-//    nouvellement allouée.
+//    nouvellement allouée. Si l'option d'aide (ARGS__HELP) est lue, alors les
+//    options suivantes ne sont pas évalués, et a->help est à true.
 //  En cas d'erreur un code d'erreur est associé à *error (error ne doit pas
 //    être NULL). 0 en cas de dépassement de capacité. -1 s'il y a eu une erreur
 //    lors de la lecture d'un argument, dans ce cas il est possible qu'un
@@ -169,9 +172,10 @@ static void print_help();
 
 /**
  * TODO :
- * --- Args
+ * Args
  * Main
- * Help
+ * --- Help
+ * Accepter -? pour l'option help
  * Nom de fichier stdin
  * Nom de fichier DEFAULT
  * Rapport
@@ -192,7 +196,7 @@ int main(int argc, char *argv[]) {
   }
 
   // Affiche la page d'aide ?
-  if (true || a->help) {
+  if (a->help) {
     print_help();
     args_dispose(&a);
     return r;
@@ -369,6 +373,11 @@ void print_help() {
     "are written on a line after the number of occurrences.\n\n"
   );
   //  Options
+  help__print_category("Program Information");
+  help__print_opt(
+    CHR(ARGS__HELP),
+    "Print this help message and exit."
+  );
   help__print_category("Input Control");
   help__print_opt(
     CHR(ARGS__LIMIT_WLEN),
@@ -505,6 +514,7 @@ void wordstream_pfn(wordstream *w, FILE *stream) {
 //  Représente la chaine de caractère des options de l'executable, à passer
 //    à getopt.
 #define ARGS__OPT_STRING ":" \
+  XSTR(ARGS__HELP) \
   XSTR(ARGS__RESTRICT) ":" \
   XSTR(ARGS__ONLY_ALPHA_NUM) \
   XSTR(ARGS__LIMIT_WLEN) ":" \
@@ -577,7 +587,10 @@ args *args_init(int argc, char *argv[], int *error) {
   int opt;
   opterr = 0;
   while ((opt = getopt(argc, argv, ARGS__OPT_STRING)) != -1) {
-    if (opt == CHR(ARGS__RESTRICT)) {
+    if (opt == CHR(ARGS__HELP)) {
+      a->help = true;
+      break;
+    } else if (opt == CHR(ARGS__RESTRICT)) {
       if (args__set_filtered(a, optarg) != 0) {
         goto ai__error_capacity;
       }
