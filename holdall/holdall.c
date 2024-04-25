@@ -116,62 +116,9 @@ int holdall_apply_context2(holdall *ha,
 
 #if defined HOLDALL_WANT_EXT && HOLDALL_WANT_EXT != 0
 
-//  memswitch : échange le contenu de src1 et src2, qui sont 2 zones mémoires
-//    de tailles n
-static void memswitch(char *src1, char *src2, size_t n) {
-  if (n == 0) {
-    return;
-  }
-  char t = *src1;
-  *src1 = *src2;
-  *src2 = t;
-  memswitch(src1 + 1, src2 + 1, n - 1);
-}
-
-//  heapsort_down : il est supposé que base est l'adresse du premier composant
-//    d'un tableau de longueur nmemb et de taille de composants size, que
-//    nmemb >= 1, que k <= nmemb - 1 et que le tableau est un maximier sur
-//    [ k + 1 ... nmemb - 1 ] relativement à la fonction de comparaison pointée
-//    par compar. Descend le composant d'indice k à la bonne place de manière à
-//    faire du tableau un maximier sur [ k ... nmemb - 1 ].
-static void heapsort_down(char *base, size_t nmemb, size_t size,
-    int (*compar)(const void *, const void *), size_t k) {
-  size_t ni1 = 2 * k + 1;
-  size_t ni2 = 2 * k + 2;
-  size_t mi;
-  if (ni1 >= nmemb) {
-    return;
-  } else if (ni2 >= nmemb) {
-    mi = ni1;
-  } else {
-    mi = compar(base + ni1 * size, base + ni2 * size) >= 0 ? ni1 : ni2;
-  }
-  char *p = base + k * size;
-  char *m = base + mi * size;
-  if (compar(p, m) >= 0) {
-    return;
-  }
-  memswitch (p, m, size);
-  heapsort_down(base, nmemb, size, compar, mi);
-}
-
-void heapsort(void *base, size_t nmemb, size_t size,
-    int (*compar)(const void *, const void *)) {
-  if (nmemb <= 1) {
-    return;
-  }
-  // Mise en tas
-  for (size_t k = 1; k <= nmemb / 2; ++k) {
-    heapsort_down(base, nmemb, size, compar, nmemb / 2 - k);
-  }
-  // Tri suffixe
-  for (; nmemb > 1; --nmemb) {
-    memswitch(base, (char *) base + (nmemb - 1) * size, size);
-    heapsort_down (base, nmemb - 1, size, compar, 0);
-  }
-}
-
 void holdall_sort(holdall *ha, int (*compar)(const void *, const void *)) {
+  qsort(ha->harr, ha->count, sizeof (void *), compar);
+  return;
   heapsort(ha->harr, ha->count, sizeof (void *), compar);
 }
 
