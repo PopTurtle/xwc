@@ -1,20 +1,15 @@
-
-
-
-#include <stdbool.h>
-#include <stdio.h>
 #include <stdlib.h>
+#include <stdio.h>
+#include <stdbool.h>
 #include <string.h>
+#include <errno.h>
 #include <unistd.h>
+#include <locale.h>
 #include <getopt.h>
+
 #include "hashtable.h"
 #include "holdall.h"
 #include "wordcounter.h"
-#include <locale.h>
-
-#include <errno.h>
-
-
 
 //  Macros ---------------------------------------------------------------------
 
@@ -169,45 +164,33 @@ static void print_help();
 
 //  Main -----------------------------------------------------------------------
 
-/**
- * TODO :
- * Args
- * Main
- * Rapport
- */
-
 int main(int argc, char *argv[]) {
   int r = EXIT_SUCCESS;
-  
-  // Récupèration des arguments// !!!!!!!!!!!!!!!!!!!!!!!!!// !!!!!!!!!!!!!!!!!!!!!!!!!// !!!!!!!!!!!!!!!!!!!!!!!!!// !!!!!!!!!!!!!!!!!!!!!!!!!// !!!!!!!!!!!!!!!!!!!!!!!!!// !!!!!!!!!!!!!!!!!!!!!!!!!
+  // Récupèration des arguments
   int arg_err;
-  args *a = args_init(argc, argv, &arg_err); // !!!!!!!!!!!!!!!!!!!!!!!!!
+  args *a = args_init(argc, argv, &arg_err);
   if (arg_err != 0) {
     return EXIT_FAILURE;
   }
   if (a == NULL) {
     goto error_capacity;
   }
-
   // Affiche la page d'aide ?
   if (a->help) {
     print_help();
     args_dispose(&a);
     return r;
   }
-
   // Locale
   setlocale(LC_COLLATE, "");
-
   // Création du compteur de mots
   wordcounter *wc = wc_empty(a->filtered);
   if (wc == NULL) {
     goto error_capacity;
   }
-
   // Application du filtre si demandé
   if (a->filtered) {
-    wordstream *ws = a->filter;// wordstream_new(a->filter_fn, "restrict");
+    wordstream *ws = a->filter;
     if (ws == NULL) {
       goto error_capacity;
     }
@@ -216,7 +199,6 @@ int main(int argc, char *argv[]) {
     }
     int rf = wc_file_add_filtered(wc, ws->stream, a->max_w_len, a->only_alpha_num);
     if (rf != 0) {
-      //wordstream_pdispose(&ws);
       if (rf == 2) {
         goto error_read;
       }
@@ -226,11 +208,10 @@ int main(int argc, char *argv[]) {
       goto error_read;
     }
   }
-  
   // Analyse des différents fichiers
   for (int i = 0; i < a->filecount; ++i) {
     int channel = START_CHANNEL + i;
-    wordstream *ws = a->file[i]; //wordstream_new(a->file[i], "DEFAULT");
+    wordstream *ws = a->file[i];
     if (ws == NULL) {
       goto error_capacity;
     }
@@ -239,19 +220,16 @@ int main(int argc, char *argv[]) {
     }
     int rc = wc_filecount(wc, ws->stream, a->max_w_len, a->only_alpha_num, channel);
     if (rc != 0) {
-      //wordstream_pdispose(&ws);
       if (rc == 2) {
         goto error_read;
       }
       goto error_capacity;
     }
     int r = wordstream_pclose(ws);
-    //wordstream_pdispose(&ws);
     if (r != 0) {
       goto error_read;
     }
   }
-
   // Tri si demandé
   if (a->sort_type != ARGS__SORT_VAL_NONE) {
     void (*sort_fun)(wordcounter *) = NULL;
@@ -264,30 +242,24 @@ int main(int argc, char *argv[]) {
       sort_fun(wc);
     }
   }
-
-  // Affiche les entetes
-  if (a->filtered) { // - === "" !! !! ! !!
+  // Affichage des entetes
+  if (a->filtered) {
     wordstream_pfn(a->filter, stdout);
   }
-  fputc('\t', stdout);
   for (int i = 0; i < a->filecount; ++i) {
+    fputc('\t', stdout);
     wordstream_pfn(a->file[i], stdout);
-    printf("\t");
   }
   fputc('\n', stdout);
-
-  // AFFICHAGE DES COMPTEURS
-
-  //wc_sort_lexical(wc);
-
+  // Affichage des compteurs
   int (*wd)(const word *) = a->filtered ? rword_put_filter : rword_put;
   wc_apply(wc, (int (*)(word *))wd);
   goto dispose;
-
+  // Gestion des erreurs et sortie du programme
 error_capacity:
   r = EXIT_FAILURE;
   fprintf(stderr, "*** Error capacity\n");
-  goto dispose; //?
+  goto dispose;
 error_read:
   r = EXIT_FAILURE;
   fprintf(stderr, "*** Error while reading a file\n");
@@ -295,7 +267,6 @@ error_read:
 dispose:
   wc_dispose(&wc);
   args_dispose(&a);
-  
   return r;
 }
 
