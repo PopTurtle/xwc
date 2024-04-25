@@ -128,18 +128,9 @@ static void wc__sort(wordcounter *w, int (*compare)(const word **, const word **
 
 //  Fonctions auxiliaires pour word --------------------------------------------
 
-//  word__compare_count, word__compare_count_reverse : compare la valeur des
-//    compteurs **w1ptr et **w2ptr.
-static int word__compare_count(const word **w1ptr, const word **w2ptr) {
-  return ((*w1ptr)->count > (*w2ptr)->count) - ((*w1ptr)->count < (*w2ptr)->count);
-}
-
-static int word__compare_count_reverse(const word **w1ptr, const word **w2ptr) {
-  return ((*w1ptr)->count < (*w2ptr)->count) - ((*w1ptr)->count > (*w2ptr)->count);
-}
-
-//  word__compare_lexical, word__compare_lexical_reverse : compare les mots des
-//    compteurs **w1ptr et **w2ptr à l'aide de strcoll.
+//  word__compare_lexical, word__compare_lexical_reverse : compare les mots
+//    associés aux compteurs **w1ptr et **w2ptr à l'aide de strcoll (inverse
+//    pour reverse).
 static int word__compare_lexical(const word **w1ptr, const word **w2ptr) {
   return strcoll((*w1ptr)->wordstr, (*w2ptr)->wordstr);
 }
@@ -147,6 +138,20 @@ static int word__compare_lexical(const word **w1ptr, const word **w2ptr) {
 static int word__compare_lexical_reverse(const word **w1ptr, const word **w2ptr) {
   return strcoll((*w2ptr)->wordstr, (*w1ptr)->wordstr);
 }
+
+//  word__compare_count, word__compare_count_reverse : compare la valeur des
+//    compteurs **w1ptr et **w2ptr (inverse pour reverse). Si le nombre
+//    d'occurence est le même, compare alors par ordre lexicographique.
+static int word__compare_count_l(const word **w1ptr, const word **w2ptr) {
+  int r = ((*w1ptr)->count > (*w2ptr)->count) - ((*w1ptr)->count < (*w2ptr)->count);
+  return r != 0 ? r : word__compare_lexical(w1ptr, w2ptr);
+}
+
+static int word__compare_count_l_reverse(const word **w1ptr, const word **w2ptr) {
+  int r = ((*w1ptr)->count < (*w2ptr)->count) - ((*w1ptr)->count > (*w2ptr)->count);
+  return r != 0 ? r : word__compare_lexical(w1ptr, w2ptr);
+}
+
 
 //  WC__BUFSIZE_MIN : taille minimale du buffer de lecture dans un fichier s'il
 //    n'a pas de taille maximale prédéfinie
@@ -285,7 +290,7 @@ void wc_sort_lexical(wordcounter *w) {
 }
 
 void wc_sort_count(wordcounter *w) {
-  wc__sort(w, word__compare_count);
+  wc__sort(w, word__compare_count_l);
 }
 
 void wc_sort_lexical_reverse(wordcounter *w) {
@@ -293,7 +298,7 @@ void wc_sort_lexical_reverse(wordcounter *w) {
 }
 
 void wc_sort_count_reverse(wordcounter *w) {
-  wc__sort(w, word__compare_count_reverse);
+  wc__sort(w, word__compare_count_l_reverse);
 }
 
 int wc_apply(wordcounter *w, int (*fun)(word *)) {

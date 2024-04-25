@@ -101,9 +101,12 @@ extern int wc_filecount(wordcounter *w, FILE *stream, size_t max_w_len, bool onl
 //    mots lus dans le flux stream au filtre de w.
 extern int wc_file_add_filtered(wordcounter *w, FILE *stream, size_t max_w_len, bool only_alpha_num);
 
-//  wc_sort_lexical, wc_sort_count : tri l'ordre des mots en fonction de leur
-//    ordre alphabétique (lexcical) ou de la valeur de leur compteur (count).
+//  wc_sort_lexical : tri les mots en fonction de leur ordre lexicographique,
+//    donné par la fonction strcoll.
 extern void wc_sort_lexical(wordcounter *w);
+
+//  wc_sort_count : tri les mots en fonction de leur nombre d'occurence
+//    (première clé), puis de leur ordre lexicographique (seconde clé).
 extern void wc_sort_count(wordcounter *w);
 
 //  wc_sort_lexical_reverse, wc_sort_count_reverse : similaires à
