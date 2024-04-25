@@ -576,6 +576,8 @@ args *args_init(int argc, char *argv[], int *error) {
   if (a == NULL) {
     return NULL;
   }
+  a->filecount = 0;
+  a->file = NULL;
   a->filtered = false;
   a->filter = NULL;
   a->only_alpha_num = false;
@@ -589,7 +591,7 @@ args *args_init(int argc, char *argv[], int *error) {
   while ((opt = getopt(argc, argv, ARGS__OPT_STRING)) != -1) {
     if (opt == CHR(ARGS__HELP)) {
       a->help = true;
-      break;
+      return a;
     } else if (opt == CHR(ARGS__RESTRICT)) {
       if (args__set_filtered(a, optarg) != 0) {
         goto ai__error_capacity;
