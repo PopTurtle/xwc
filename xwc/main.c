@@ -30,14 +30,11 @@
 
 //  Les directives suivantes sont des "raccourcis" pour les format de couleurs
 //    ANSI
-#define BGCOLOR_WHITE "\x1b[107m"
-#define BGCOLOR_RESET "\x1b[49m"
+#define ESC_COLOR_INVERSE "\x1b[7m"
+#define ESC_COLOR_INVERSE_RESET "\x1b[27m"
 
-#define FGCOLOR_BLACK "\x1b[30m"
-#define FGCOLOR_RESET "\x1b[39m"
-
-#define FORMAT_INPUT_START BGCOLOR_WHITE FGCOLOR_BLACK
-#define FORMAT_INPUT_STOP BGCOLOR_RESET FGCOLOR_RESET
+#define FORMAT_INPUT_START ESC_COLOR_INVERSE
+#define FORMAT_INPUT_STOP ESC_COLOR_INVERSE_RESET
 
 //  ARGS__* : utilisées pour les paramètres de l'executable
 #define ARGS__HELP h
@@ -176,7 +173,7 @@ static void print_help();
  * Main
  * --- Help
  * Accepter -? pour l'option help
- * -- Nom de fichier stdin
+ * --- Nom de fichier stdin
  * Nom de fichier DEFAULT
  * Rapport
  * --- Sort NUMERIC second key?????
