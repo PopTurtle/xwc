@@ -177,7 +177,7 @@ static void print_help();
  * Nom de fichier DEFAULT
  * Rapport
  * --- Sort NUMERIC second key?????
- * Couleur START READING FILE
+ * --- Couleur START READING FILE
  */
 
 int main(int argc, char *argv[]) {
