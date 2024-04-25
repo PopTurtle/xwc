@@ -247,11 +247,11 @@ void wc_dispose(wordcounter **w) {
   if (*w == NULL) {
     return;
   }
-    wc_apply(*w, rword__dispose_content);
-    hashtable_dispose(&(*w)->counter);
-    holdall_dispose(&(*w)->ha_word);
-    free(*w);
-    *w = NULL;
+  wc_apply(*w, rword__dispose_content);
+  hashtable_dispose(&(*w)->counter);
+  holdall_dispose(&(*w)->ha_word);
+  free(*w);
+  *w = NULL;
 }
 
 int wc_addcount(wordcounter *w, const char *s, int channel) {

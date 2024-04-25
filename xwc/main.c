@@ -97,6 +97,7 @@ struct args {
   size_t max_w_len;
   int sort_type;
   bool sort_reversed;
+  bool help;
 };
 
 //  Fonctions ------------------------------------------------------------------
@@ -144,9 +145,9 @@ static void wordstream_pfn(wordstream *w, FILE *stream);
 //    message d'erreur soit affiché sur stderr.
 static args *args_init(int argc, char *argv[], int *error);
 
-//  args_dispose : Libère les ressources nécessaire à la gestion de *a. Le
-//    pointeur a réfèrence après appel une zone non allouée.
-static void args_dispose(args *a);
+//  args_dispose : sans effet si a est *a vaut NULL. Sinon libère les ressources
+//    nécessaires à la gestion de a, puis affecte NULL à *a;
+static void args_dispose(args **a);
 
 //  Fonctions auxiliaires ------------------------------------------------------
 
@@ -160,6 +161,10 @@ static int rword_put(const word *w);
 //    le canal est différent de MULTI_CHANNEL et UNDEFINED_CHANNEL
 static int rword_put_filter(const word *w);
 
+
+//  print_help : affiche l'aide sur la sortie standard.
+static void print_help();
+
 //  Main -----------------------------------------------------------------------
 
 /**
@@ -169,11 +174,13 @@ static int rword_put_filter(const word *w);
  * Help
  * Nom de fichier stdin
  * Nom de fichier DEFAULT
+ * Rapport
+ * Sort NUMERIC second key?????
  */
 
 int main(int argc, char *argv[]) {
   int r = EXIT_SUCCESS;
-
+  
   // Récupèration des arguments// !!!!!!!!!!!!!!!!!!!!!!!!!// !!!!!!!!!!!!!!!!!!!!!!!!!// !!!!!!!!!!!!!!!!!!!!!!!!!// !!!!!!!!!!!!!!!!!!!!!!!!!// !!!!!!!!!!!!!!!!!!!!!!!!!// !!!!!!!!!!!!!!!!!!!!!!!!!
   int arg_err;
   args *a = args_init(argc, argv, &arg_err); // !!!!!!!!!!!!!!!!!!!!!!!!!
@@ -184,6 +191,12 @@ int main(int argc, char *argv[]) {
     goto error_capacity;
   }
 
+  // Affiche la page d'aide ?
+  if (true || a->help) {
+    print_help();
+    args_dispose(&a);
+    return r;
+  }
 
   // Locale
   setlocale(LC_COLLATE, "");
@@ -287,7 +300,7 @@ error_read:
   goto dispose;
 dispose:
   wc_dispose(&wc);
-  args_dispose(a);
+  args_dispose(&a);
   
   return r;
 }
@@ -303,7 +316,7 @@ dispose:
   }                                                                            \
   printf("%zu\n", word_count(w));
 
-static int rword_put(const word *w) {
+int rword_put(const word *w) {
   if (word_channel(w) == MULTI_CHANNEL) {
     return 0;
   }
@@ -311,12 +324,94 @@ static int rword_put(const word *w) {
   return 0;
 }
 
-static int rword_put_filter(const word *w) {
+int rword_put_filter(const word *w) {
   if (word_channel(w) == MULTI_CHANNEL || word_channel(w) == UNDEFINED_CHANNEL) {
     return 0;
   }
   DISPLAY_WORD(w);
   return 0;
+}
+
+//  ----------------------------------------------------------------------------
+
+//  help__print_category : sert pour l'affichage de l'aide ; affiche une
+//    catégorie d'aide.
+static void help__print_category(const char *category) {
+  printf("%s\n", category);
+}
+
+//  help_print_opt : sert pour l'affichage de l'aide ; affiche une option (opt)
+//    suivie de sa description (describe).
+static void help__print_opt(char opt, const char *describe) {
+  printf("  -%c\t\t%s\n\n", opt, describe);
+}
+
+void print_help() {
+  //  Usage
+  printf("Usage: xwc [OPTION]... [FILE]...\n\n");
+  //  Description
+  printf(
+    "Exclusive word counting. Print the number of occurrences of each word " \
+    "that appears in one and only one of given text FILES.\n\n"
+  );
+  printf(
+    "A word is, by default, a maximum length sequence of characters that do " \
+    "not belong to the white-space characters set.\n\n"
+  );
+  printf(
+    "Results are displayed in columns on the standard output. Columns are " \
+    "separated by the tab character. Lines are terminated by the end-of-line " \
+    "character. A header line shows the FILE names: the name of the first " \
+    "FILE appears in the second column, that of the second in the third, and " \
+    "so on. For the following lines, a word appears in the first column, its " \
+    "number of occurrences in the FILE in which it appears to the exclusion " \
+    "of all others in the column associated with the FILE. No tab characters " \
+    "are written on a line after the number of occurrences.\n\n"
+  );
+  //  Options
+  help__print_category("Input Control");
+  help__print_opt(
+    CHR(ARGS__LIMIT_WLEN),
+    "Set the maximal number of significant initial letters for words to " \
+    "VALUE. 0 means without limitation. Default is 0."
+  );
+  help__print_opt(
+    CHR(ARGS__ONLY_ALPHA_NUM),
+    "Make the punctuation characters play the same role as white-space " \
+    "characters in the meaning of words."
+  );
+  help__print_opt(
+    CHR(ARGS__RESTRICT),
+    "Limit the counting to the set of words that appear in FILE. FILE is " \
+    "displayed in the first column the standard input; in this case, \"\" is " \
+    "displayed in first column of the header line."
+  );
+  help__print_category("Output Control");
+  help__print_opt(
+    CHR(ARGS__SORT_LEXICAL),
+    "Same as -s lexicographical"
+  );
+  help__print_opt(
+    CHR(ARGS__SORT_NUMERIC),
+    "Same as -s numeric"
+  );
+  help__print_opt(
+    CHR(ARGS__SORT_NONE),
+    "Same as -s none"
+  );
+  help__print_opt(
+    CHR(ARGS__SORT_TYPE),
+    "Sort the results in ascending order, by default, according to TYPE. The " \
+    "available values for TYPE are: 'lexicographical', sort on words, " \
+    "'numeric', sort on number of occurrences, first key, and words, " \
+    "second key, and 'none', don't try to sort, take it as it comes. Default" \
+    "is 'none'."
+  );
+  help__print_opt(
+    CHR(ARGS__SORT_REVERSE),
+    "Sort in descending order on the single or first key instead of " \
+    "ascending order. This option has no effect if the -S option is enable."
+  );
 }
 
 //  ----------------------------------------------------------------------------
@@ -477,6 +572,7 @@ args *args_init(int argc, char *argv[], int *error) {
   a->max_w_len = 0;
   a->sort_type = ARGS__SORT_VAL_NONE;
   a->sort_reversed = false;
+  a->help = false;
   // Récupération des valeurs des arguments
   int opt;
   opterr = 0;
@@ -550,11 +646,15 @@ ai__error_capacity:
   return NULL;
 }
 
-void args_dispose(args *a) {
-  for (int i = 0; i < a->filecount; ++i) {
-    wordstream_pdispose(&a->file[i]);
+void args_dispose(args **a) {
+  if (*a == NULL) {
+    return;
   }
-  free(a->file);
-  wordstream_pdispose(&a->filter);
-  free(a);
+  for (int i = 0; i < (*a)->filecount; ++i) {
+    wordstream_pdispose(&(*a)->file[i]);
+  }
+  free((*a)->file);
+  wordstream_pdispose(&(*a)->filter);
+  free(*a);
+  *a = NULL;
 }
