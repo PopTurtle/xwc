@@ -119,7 +119,6 @@ int holdall_apply_context2(holdall *ha,
 void holdall_sort(holdall *ha, int (*compar)(const void *, const void *)) {
   qsort(ha->harr, ha->count, sizeof (void *), compar);
   return;
-  heapsort(ha->harr, ha->count, sizeof (void *), compar);
 }
 
 #endif
