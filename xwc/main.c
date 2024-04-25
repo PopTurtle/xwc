@@ -36,8 +36,10 @@
 #define FORMAT_INPUT_START ESC_COLOR_INVERSE
 #define FORMAT_INPUT_STOP ESC_COLOR_INVERSE_RESET
 
-//  ARGS__* : utilisées pour les paramètres de l'executable
-#define ARGS__HELP h
+//  ARGS__* : utilisées pour les paramètres de l'executable ; ils ont des
+//    valeurs différentes de '?' et ':', à l'exception de ARGS__HELP, qui peut
+//    prendre la valeur '?'.
+#define ARGS__HELP ?
 
 #define ARGS__RESTRICT r
 #define ARGS__ONLY_ALPHA_NUM p
@@ -171,13 +173,7 @@ static void print_help();
  * TODO :
  * Args
  * Main
- * --- Help
- * Accepter -? pour l'option help
- * --- Nom de fichier stdin
- * Nom de fichier DEFAULT
  * Rapport
- * --- Sort NUMERIC second key?????
- * --- Couleur START READING FILE
  */
 
 int main(int argc, char *argv[]) {
@@ -534,6 +530,10 @@ void wordstream_pfn(wordstream *w, FILE *stream) {
      )                                                                         \
   )
 
+//  ARGS__FN_BUFSIZE : taille du buffer utilisé pour les noms de fichier par
+//    défaut (dans sprintf) ; Actuellement : "#n" Donc (1 + (longueur de n) + 1)
+#define ARGS__FN_BUFSIZE (1 + 30 + 1)
+
 //  args__set_filtered : défini l'option "filtré" de a à true, avec comme filtre
 //    le fichier de nom filter_fn. Renvoie -1 en cas de dépassement de capacité,
 //    sinon renvoie 0.
@@ -563,10 +563,6 @@ static int args__get_size_t(size_t *k, const char *s) {
   return 0;
 }
 
-//  ARGS__FN_BUFSIZE : taille du buffer utilisé pour les noms de fichier par
-//    défaut (dans sprintf) ; Actuellement : "#n" Donc (1 + (longueur de n) + 1)
-#define ARGS__FN_BUFSIZE (1 + 30 + 1)
-
 args *args_init(int argc, char *argv[], int *error) {
   if (error == NULL) {
     return NULL;
@@ -590,8 +586,9 @@ args *args_init(int argc, char *argv[], int *error) {
   // Récupération des valeurs des arguments
   int opt;
   opterr = 0;
+  optopt = 0;
   while ((opt = getopt(argc, argv, ARGS__OPT_STRING)) != -1) {
-    if (opt == CHR(ARGS__HELP)) {
+    if (opt == CHR(ARGS__HELP) && (CHR(ARGS__HELP) != '?' || optopt == 0)) {
       a->help = true;
       return a;
     } else if (opt == CHR(ARGS__RESTRICT)) {
@@ -624,6 +621,7 @@ args *args_init(int argc, char *argv[], int *error) {
       fprintf(stderr, "*** Unknown argument: %s\n", argv[optind - 1]);
       goto ai__error_arg;
     }
+    optopt = 0;
   }
   // Gestion des fichiers
   a->filecount = argc - optind;
