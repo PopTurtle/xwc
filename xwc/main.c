@@ -176,10 +176,11 @@ static void print_help();
  * Main
  * --- Help
  * Accepter -? pour l'option help
- * Nom de fichier stdin
+ * -- Nom de fichier stdin
  * Nom de fichier DEFAULT
  * Rapport
- * Sort NUMERIC second key?????
+ * --- Sort NUMERIC second key?????
+ * Couleur START READING FILE
  */
 
 int main(int argc, char *argv[]) {
@@ -289,10 +290,6 @@ int main(int argc, char *argv[]) {
   int (*wd)(const word *) = a->filtered ? rword_put_filter : rword_put;
   wc_apply(wc, (int (*)(word *))wd);
   goto dispose;
-
-
-
-
 
 error_capacity:
   r = EXIT_FAILURE;
@@ -431,7 +428,11 @@ wordstream *wordstream_new(const char *filename, const char *default_fn) {
     return NULL;
   }
   // Défini s'il s'agit de l'entrée standard
-  w->is_stdin = *filename == '-';
+  w->is_stdin = strcmp(filename, "-") == 0;
+  // Vérifie que le nom de fichier ne commence pas par "-- "
+  if (!w->is_stdin && filename[0] == '-' && filename[1] == '-' && filename[2] == ' ') {
+    filename = filename + 3;
+  }
   const char *fn = w->is_stdin ? default_fn : filename;
   // Copie le nom de fichier choisi
   char *s = malloc(strlen(fn) + 1);
