@@ -273,7 +273,7 @@ int main(int argc, char *argv[]) {
   if (a->filtered) { // - === "" !! !! ! !!
     wordstream_pfn(a->filter, stdout);
   }
-  fputc('\t', stdin);
+  fputc('\t', stdout);
   for (int i = 0; i < a->filecount; ++i) {
     wordstream_pfn(a->file[i], stdout);
     printf("\t");
@@ -563,6 +563,10 @@ static int args__get_size_t(size_t *k, const char *s) {
   return 0;
 }
 
+//  ARGS__FN_BUFSIZE : taille du buffer utilisé pour les noms de fichier par
+//    défaut (dans sprintf) ; Actuellement : "#n" Donc (1 + (longueur de n) + 1)
+#define ARGS__FN_BUFSIZE (1 + 30 + 1)
+
 args *args_init(int argc, char *argv[], int *error) {
   if (error == NULL) {
     return NULL;
@@ -637,8 +641,10 @@ args *args_init(int argc, char *argv[], int *error) {
       goto ai__error_capacity;
     }
   } else {
+    char buff[ARGS__FN_BUFSIZE];
     for (; alloc_ws < a->filecount; ++alloc_ws) {
-      a->file[alloc_ws] = wordstream_new(argv[optind + alloc_ws], "DEFAULT");
+      sprintf(buff, "#%d", alloc_ws + 1);
+      a->file[alloc_ws] = wordstream_new(argv[optind + alloc_ws], buff);
       if (a->file[alloc_ws] == NULL) {
         goto ai__error_capacity;
       }
