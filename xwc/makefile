@@ -4,7 +4,7 @@ wordcounter_dir = ../wordcounter/
 CC = gcc
 CFLAGS = -std=c2x \
   -Wall -Wconversion -Werror -Wextra -Wpedantic -Wwrite-strings \
-  -O0 -g \
+  -O2 \
   -I$(hashtable_dir) -I$(holdall_dir) -I$(wordcounter_dir)
 vpath %.c $(hashtable_dir) $(holdall_dir) $(wordcounter_dir)
 vpath %.h $(hashtable_dir) $(holdall_dir) $(wordcounter_dir)
