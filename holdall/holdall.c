@@ -15,7 +15,6 @@
 //    dynamique d'un fourretout lorsque celui-ci est plein
 #define HA__CAPACITY_MUL 2
 
-
 //  Structure ------------------------------------------------------------------
 
 struct holdall {
@@ -33,7 +32,8 @@ int holdall__increase_capacity(holdall *ha) {
   if (ha->harr_size > SIZE_MAX / HA__CAPACITY_MUL) {
     return -1;
   }
-  void **t = realloc(ha->harr, ha->harr_size * HA__CAPACITY_MUL * sizeof *ha->harr);
+  void **t = realloc(ha->harr,
+      ha->harr_size * HA__CAPACITY_MUL * sizeof *ha->harr);
   if (t == NULL) {
     return -1;
   }
@@ -117,8 +117,7 @@ int holdall_apply_context2(holdall *ha,
 #if defined HOLDALL_WANT_EXT && HOLDALL_WANT_EXT != 0
 
 void holdall_sort(holdall *ha, int (*compar)(const void *, const void *)) {
-  qsort(ha->harr, ha->count, sizeof (void *), compar);
-  return;
+  qsort(ha->harr, ha->count, sizeof(void *), compar);
 }
 
 #endif

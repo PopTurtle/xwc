@@ -1,3 +1,7 @@
+#include "hashtable.h"
+#include "holdall.h"
+#include "wordcounter.h"
+
 #include <stdlib.h>
 #include <stdio.h>
 #include <stdbool.h>
@@ -6,10 +10,6 @@
 #include <unistd.h>
 #include <locale.h>
 #include <getopt.h>
-
-#include "hashtable.h"
-#include "holdall.h"
-#include "wordcounter.h"
 
 //  Macros ---------------------------------------------------------------------
 
@@ -158,7 +158,6 @@ static int rword_put(const word *w);
 //    le canal est différent de MULTI_CHANNEL et UNDEFINED_CHANNEL
 static int rword_put_filter(const word *w);
 
-
 //  print_help : affiche l'aide sur la sortie standard.
 static void print_help();
 
@@ -197,7 +196,8 @@ int main(int argc, char *argv[]) {
     if (wordstream_popen(ws) != 0) {
       goto error_read;
     }
-    int rf = wc_file_add_filtered(wc, ws->stream, a->max_w_len, a->only_alpha_num);
+    int rf = wc_file_add_filtered(wc, ws->stream, a->max_w_len,
+        a->only_alpha_num);
     if (rf != 0) {
       if (rf == 2) {
         goto error_read;
@@ -218,7 +218,8 @@ int main(int argc, char *argv[]) {
     if (wordstream_popen(ws) != 0) {
       goto error_read;
     }
-    int rc = wc_filecount(wc, ws->stream, a->max_w_len, a->only_alpha_num, channel);
+    int rc = wc_filecount(wc, ws->stream, a->max_w_len, a->only_alpha_num,
+        channel);
     if (rc != 0) {
       if (rc == 2) {
         goto error_read;
@@ -256,8 +257,8 @@ int main(int argc, char *argv[]) {
   wc_apply(wc, (int (*)(word *))wd);
   goto dispose;
   // Gestion des erreurs et sortie du programme
-error_capacity:
-  r = EXIT_FAILURE;
+  error_capacity
+  : r = EXIT_FAILURE;
   fprintf(stderr, "*** Error capacity\n");
   goto dispose;
 error_read:
@@ -290,7 +291,8 @@ int rword_put(const word *w) {
 }
 
 int rword_put_filter(const word *w) {
-  if (word_channel(w) == MULTI_CHANNEL || word_channel(w) == UNDEFINED_CHANNEL) {
+  if (word_channel(w) == MULTI_CHANNEL
+      || word_channel(w) == UNDEFINED_CHANNEL) {
     return 0;
   }
   DISPLAY_WORD(w);
@@ -316,72 +318,73 @@ void print_help() {
   printf("Usage: xwc [OPTION]... [FILE]...\n\n");
   //  Description
   printf(
-    "Exclusive word counting. Print the number of occurrences of each word " \
-    "that appears in one and only one of given text FILES.\n\n"
-  );
+      "Exclusive word counting. Print the number of occurrences of each word " \
+      "that appears in one and only one of given text FILES.\n\n"
+      );
   printf(
-    "A word is, by default, a maximum length sequence of characters that do " \
-    "not belong to the white-space characters set.\n\n"
-  );
+      "A word is, by default, a maximum length sequence of characters that "   \
+      "do not belong to the white-space characters set.\n\n"
+      );
   printf(
-    "Results are displayed in columns on the standard output. Columns are " \
-    "separated by the tab character. Lines are terminated by the end-of-line " \
-    "character. A header line shows the FILE names: the name of the first " \
-    "FILE appears in the second column, that of the second in the third, and " \
-    "so on. For the following lines, a word appears in the first column, its " \
-    "number of occurrences in the FILE in which it appears to the exclusion " \
-    "of all others in the column associated with the FILE. No tab characters " \
-    "are written on a line after the number of occurrences.\n\n"
-  );
+      "Results are displayed in columns on the standard output. Columns are "  \
+      "separated by the tab character. Lines are terminated by the "           \
+      "end-of-line character. A header line shows the FILE names: the name "   \
+      "of the first FILE appears in the second column, that of the second in " \
+      "the third, and so on. For the following lines, a word appears in the "  \
+      "first column, its number of occurrences in the FILE in which it "       \
+      "appears to the exclusion of all others in the column associated with "  \
+      "the FILE. No tab characters are written on a line after the number of " \
+      "occurrences.\n\n"
+      );
   //  Options
   help__print_category("Program Information");
   help__print_opt(
-    CHR(ARGS__HELP),
-    "Print this help message and exit."
-  );
+      CHR(ARGS__HELP),
+      "Print this help message and exit."
+      );
   help__print_category("Input Control");
   help__print_opt(
-    CHR(ARGS__LIMIT_WLEN),
-    "Set the maximal number of significant initial letters for words to " \
-    "VALUE. 0 means without limitation. Default is 0."
-  );
+      CHR(ARGS__LIMIT_WLEN),
+      "Set the maximal number of significant initial letters for words to "    \
+      "VALUE. 0 means without limitation. Default is 0."
+      );
   help__print_opt(
-    CHR(ARGS__ONLY_ALPHA_NUM),
-    "Make the punctuation characters play the same role as white-space " \
-    "characters in the meaning of words."
-  );
+      CHR(ARGS__ONLY_ALPHA_NUM),
+      "Make the punctuation characters play the same role as white-space "     \
+      "characters in the meaning of words."
+      );
   help__print_opt(
-    CHR(ARGS__RESTRICT),
-    "Limit the counting to the set of words that appear in FILE. FILE is " \
-    "displayed in the first column the standard input; in this case, \"\" is " \
-    "displayed in first column of the header line."
-  );
+      CHR(ARGS__RESTRICT),
+      "Limit the counting to the set of words that appear in FILE. FILE is "   \
+      "displayed in the first column the standard input; in this case, \"\" "  \
+      "is displayed in first column of the header line."
+      );
   help__print_category("Output Control");
   help__print_opt(
-    CHR(ARGS__SORT_LEXICAL),
-    "Same as -s lexicographical"
-  );
+      CHR(ARGS__SORT_LEXICAL),
+      "Same as -s lexicographical"
+      );
   help__print_opt(
-    CHR(ARGS__SORT_NUMERIC),
-    "Same as -s numeric"
-  );
+      CHR(ARGS__SORT_NUMERIC),
+      "Same as -s numeric"
+      );
   help__print_opt(
-    CHR(ARGS__SORT_NONE),
-    "Same as -s none"
-  );
+      CHR(ARGS__SORT_NONE),
+      "Same as -s none"
+      );
   help__print_opt(
-    CHR(ARGS__SORT_TYPE),
-    "Sort the results in ascending order, by default, according to TYPE. The " \
-    "available values for TYPE are: 'lexicographical', sort on words, " \
-    "'numeric', sort on number of occurrences, first key, and words, " \
-    "second key, and 'none', don't try to sort, take it as it comes. Default" \
-    "is 'none'."
-  );
+      CHR(ARGS__SORT_TYPE),
+      "Sort the results in ascending order, by default, according to TYPE. "   \
+      "The available values for TYPE are: 'lexicographical', sort on words, "  \
+      "'numeric', sort on number of occurrences, first key, and words, "       \
+      "second key, and 'none', don't try to sort, take it as it comes. "       \
+      "Default is 'none'."
+      );
   help__print_opt(
-    CHR(ARGS__SORT_REVERSE),
-    "Sort in descending order on the single or first key instead of " \
-    "ascending order. This option has no effect if the -S option is enable."
-  );
+      CHR(ARGS__SORT_REVERSE),
+      "Sort in descending order on the single or first key instead of "        \
+      "ascending order. This option has no effect if the -S option is enable."
+      );
 }
 
 //  ----------------------------------------------------------------------------
@@ -394,7 +397,8 @@ wordstream *wordstream_new(const char *filename, const char *default_fn) {
   // Défini s'il s'agit de l'entrée standard
   w->is_stdin = strcmp(filename, "-") == 0;
   // Vérifie que le nom de fichier ne commence pas par "-- "
-  if (!w->is_stdin && filename[0] == '-' && filename[1] == '-' && filename[2] == ' ') {
+  if (!w->is_stdin && filename[0] == '-' && filename[1] == '-'
+      && filename[2] == ' ') {
     filename = filename + 3;
   }
   const char *fn = w->is_stdin ? default_fn : filename;
@@ -435,9 +439,9 @@ int wordstream_popen(wordstream *w) {
   if (w->is_stdin) {
     f = stdin;
     printf(
-      FORMAT_INPUT_START "--- starts reading for %s FILE"
-      FORMAT_INPUT_STOP "\n", w->filename
-    );
+        FORMAT_INPUT_START "--- starts reading for %s FILE"
+        FORMAT_INPUT_STOP "\n", w->filename
+        );
   } else {
     f = fopen(w->filename, "r");
     if (!f) {
@@ -453,8 +457,9 @@ int wordstream_popen(wordstream *w) {
 int wordstream_pclose(wordstream *w) {
   w->is_open = false;
   if (!w->is_stdin && fclose(w->stream) != 0) {
-      fprintf(stderr, "*** Erreur lors de la fermeture du fichier: %s\n", w->filename);
-      return -1;
+    fprintf(stderr, "*** Erreur lors de la fermeture du fichier: %s\n",
+        w->filename);
+    return -1;
   }
   if (w->is_stdin) {
     printf(
@@ -478,15 +483,15 @@ void wordstream_pfn(wordstream *w, FILE *stream) {
 
 //  Représente la chaine de caractère des options de l'executable, à passer
 //    à getopt.
-#define ARGS__OPT_STRING ":" \
-  XSTR(ARGS__HELP) \
-  XSTR(ARGS__RESTRICT) ":" \
-  XSTR(ARGS__ONLY_ALPHA_NUM) \
-  XSTR(ARGS__LIMIT_WLEN) ":" \
-  XSTR(ARGS__SORT_REVERSE) \
-  XSTR(ARGS__SORT_LEXICAL) \
-  XSTR(ARGS__SORT_NUMERIC) \
-  XSTR(ARGS__SORT_NONE) \
+#define ARGS__OPT_STRING ":"                                                   \
+  XSTR(ARGS__HELP)                                                             \
+  XSTR(ARGS__RESTRICT) ":"                                                     \
+  XSTR(ARGS__ONLY_ALPHA_NUM)                                                   \
+  XSTR(ARGS__LIMIT_WLEN) ":"                                                   \
+  XSTR(ARGS__SORT_REVERSE)                                                     \
+  XSTR(ARGS__SORT_LEXICAL)                                                     \
+  XSTR(ARGS__SORT_NUMERIC)                                                     \
+  XSTR(ARGS__SORT_NONE)                                                        \
   XSTR(ARGS__SORT_TYPE) ":"
 
 //  ARGS__SORT_COND : on suppose qu'il existe un entier opt qui est l'option en
@@ -494,11 +499,11 @@ void wordstream_pfn(wordstream *w, FILE *stream) {
 //    si besoin) correspond au tri SORT_TYPE.
 #define ARGS__SORT_COND(SORT_TYPE)                                             \
   (                                                                            \
-  opt == CHR(ARGS__SORT_ ## SORT_TYPE)                                         \
-  || (                                                                         \
-     opt == CHR(ARGS__SORT_TYPE)                                               \
-     && strcmp(optarg, ARGS__SORT_TYPE_ ## SORT_TYPE) == 0                     \
-     )                                                                         \
+    opt == CHR(ARGS__SORT_ ## SORT_TYPE)                                       \
+    || (                                                                       \
+      opt == CHR(ARGS__SORT_TYPE)                                              \
+      && strcmp(optarg, ARGS__SORT_TYPE_ ## SORT_TYPE) == 0                    \
+      )                                                                        \
   )
 
 //  ARGS__FN_BUFSIZE : taille du buffer utilisé pour les noms de fichier par
@@ -530,7 +535,7 @@ static int args__get_size_t(size_t *k, const char *s) {
   if (errno != 0 || end == s || *end != '\0') {
     return -1;
   }
-  *k = (size_t)m;
+  *k = (size_t) m;
   return 0;
 }
 
@@ -570,7 +575,7 @@ args *args_init(int argc, char *argv[], int *error) {
       a->only_alpha_num = true;
     } else if (opt == CHR(ARGS__LIMIT_WLEN)) {
       if (args__get_size_t(&a->max_w_len, optarg) != 0) {
-        fprintf(stderr, "*** Invalid argument: -%c %s\n", (char)opt, optarg);
+        fprintf(stderr, "*** Invalid argument: -%c %s\n", (char) opt, optarg);
         goto ai__error_arg;
       }
     } else if (opt == CHR(ARGS__SORT_REVERSE)) {
@@ -580,10 +585,11 @@ args *args_init(int argc, char *argv[], int *error) {
     } else if (ARGS__SORT_COND(NUMERIC)) {
       a->sort_type = ARGS__SORT_VAL_NUMERIC;
     } else if (ARGS__SORT_COND(NONE)) {
-      a->sort_type =ARGS__SORT_VAL_NONE;
+      a->sort_type = ARGS__SORT_VAL_NONE;
     } else if (opt == CHR(ARGS__SORT_TYPE)) {
       // Le tri n'est pas reconnu
-      fprintf(stderr, "*** Unrecognised expression: -%c %s\n", (char)opt, optarg);
+      fprintf(stderr, "*** Unrecognised expression: -%c %s\n", (char) opt,
+          optarg);
       goto ai__error_arg;
     } else if (opt == ':') {
       fprintf(stderr, "*** Missing argument: %s\n", argv[optind - 1]);

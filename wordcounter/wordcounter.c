@@ -6,7 +6,6 @@
 #include "hashtable.h"
 #include "holdall.h"
 
-
 //  Les directives ci-dessous assurent l'inégalité :
 //    UNDEFINED_CHANNEL < MULTI_CHANNEL < START_CHANNEL
 #if UNDEFINED_CHANNEL >= MULTI_CHANNEL || MULTI_CHANNEL >= START_CHANNEL
@@ -16,9 +15,9 @@
 //  Structures -----------------------------------------------------------------
 
 struct wordcounter {
-    hashtable *counter;
-    holdall *ha_word;
-    bool filtered;
+  hashtable *counter;
+  holdall *ha_word;
+  bool filtered;
 };
 
 struct word {
@@ -44,34 +43,34 @@ size_t str_hashfun(const char *s) {
 //    Renvoie NULL en cas de dépassement de capacité, renvoie sinon le compteur
 //    nouvellement créé.
 static word *word__from(const char *s, int channel) {
-    word *w = malloc(sizeof *w);
-    if (w == NULL) {
-        return NULL;
-    }
-    char *t = malloc(strlen(s) + 1);
-    if (t == NULL) {
-        free(w);
-        return NULL;
-    }
-    strcpy(t, s);
-    w->wordstr = t;
-    w->count = 1;
-    w->channel = channel;
-    return w;
+  word *w = malloc(sizeof *w);
+  if (w == NULL) {
+    return NULL;
+  }
+  char *t = malloc(strlen(s) + 1);
+  if (t == NULL) {
+    free(w);
+    return NULL;
+  }
+  strcpy(t, s);
+  w->wordstr = t;
+  w->count = 1;
+  w->channel = channel;
+  return w;
 }
 
 //  word__dispose_content : Libère les ressources associées au compteur w,
 //    sans affecté w à NULL, qui pointe donc désormais sur une zone non
 //    allouée.
 static void word__dispose_content(word *w) {
-    free(w->wordstr);
-    free(w);
+  free(w->wordstr);
+  free(w);
 }
 
 //  rword__dispose_content : similaire à word__dispose_content mais renvoie 0.
 static int rword__dispose_content(word *w) {
-    word__dispose_content(w);
-    return 0;
+  word__dispose_content(w);
+  return 0;
 }
 
 //  Fonctions pour word --------------------------------------------------------
@@ -96,22 +95,24 @@ int word_channel(const word *w) {
 //    NULL en cas de dépassement de capacité, sinon renvoie un pointeur vers
 //    le nouveau compteur.
 static word *wc__create_counter(wordcounter *w, const char *s, int channel) {
-    word *p = word__from(s, channel);
-    if (p == NULL) {
-        return NULL;
-    }
-    if (holdall_put(w->ha_word, p) != 0
-      || hashtable_add(w->counter, p->wordstr, p) == NULL) { // peut etre probleme
-        word__dispose_content(p);
-        return NULL;
-    }
-    return p;
+  word *p = word__from(s, channel);
+  if (p == NULL) {
+    return NULL;
+  }
+  if (holdall_put(w->ha_word, p) != 0
+      || hashtable_add(w->counter, p->wordstr, p) == NULL) { // peut etre
+                                                             // probleme
+    word__dispose_content(p);
+    return NULL;
+  }
+  return p;
 }
 
 //  wc_create_empty_counter : similaire à wc__create_counter, mais change la
 //    valeur du nouveau compteur pour être 0. Renvoie une valeur non nulle en
 //    cas de dépassement de capacité, sinon 0.
-static int wc__create_empty_counter(wordcounter *w, const char *s, int channel) {
+static int wc__create_empty_counter(wordcounter *w, const char *s,
+    int channel) {
   word *p = wc__create_counter(w, s, channel);
   if (p == NULL) {
     return 1;
@@ -122,7 +123,8 @@ static int wc__create_empty_counter(wordcounter *w, const char *s, int channel) 
 
 //  wc_sort : Tri le compteur de mot w, ce qui modifiera l'ordre d'appel des
 //    fonctions avec wc_apply par exemple.
-static void wc__sort(wordcounter *w, int (*compare)(const word **, const word **)) {
+static void wc__sort(wordcounter *w, int (*compare)(const word **,
+    const word **)) {
   holdall_sort(w->ha_word, (int (*)(const void *, const void *))compare);
 }
 
@@ -135,7 +137,8 @@ static int word__compare_lexical(const word **w1ptr, const word **w2ptr) {
   return strcoll((*w1ptr)->wordstr, (*w2ptr)->wordstr);
 }
 
-static int word__compare_lexical_reverse(const word **w1ptr, const word **w2ptr) {
+static int word__compare_lexical_reverse(const word **w1ptr,
+    const word **w2ptr) {
   return strcoll((*w2ptr)->wordstr, (*w1ptr)->wordstr);
 }
 
@@ -143,15 +146,19 @@ static int word__compare_lexical_reverse(const word **w1ptr, const word **w2ptr)
 //    compteurs **w1ptr et **w2ptr (inverse pour reverse). Si le nombre
 //    d'occurence est le même, compare alors par ordre lexicographique.
 static int word__compare_count_l(const word **w1ptr, const word **w2ptr) {
-  int r = ((*w1ptr)->count > (*w2ptr)->count) - ((*w1ptr)->count < (*w2ptr)->count);
+  int r
+    = ((*w1ptr)->count
+      > (*w2ptr)->count) - ((*w1ptr)->count < (*w2ptr)->count);
   return r != 0 ? r : word__compare_lexical(w1ptr, w2ptr);
 }
 
-static int word__compare_count_l_reverse(const word **w1ptr, const word **w2ptr) {
-  int r = ((*w1ptr)->count < (*w2ptr)->count) - ((*w1ptr)->count > (*w2ptr)->count);
+static int word__compare_count_l_reverse(const word **w1ptr,
+    const word **w2ptr) {
+  int r
+    = ((*w1ptr)->count
+      < (*w2ptr)->count) - ((*w1ptr)->count > (*w2ptr)->count);
   return r != 0 ? r : word__compare_lexical(w1ptr, w2ptr);
 }
-
 
 //  WC__BUFSIZE_MIN : taille minimale du buffer de lecture dans un fichier s'il
 //    n'a pas de taille maximale prédéfinie
@@ -170,7 +177,9 @@ static int word__compare_count_l_reverse(const word **w1ptr, const word **w2ptr)
 //  Renvoie 0 en cas de succès, 1 en cas de dépassement de capacité, 2 en cas
 //    d'erreur de lecture sur le flux stream, et 3 si l'appel à fun a renvoyé
 //    une valeur différente de 0.
-static int wc__file_word_apply(FILE *stream, wordcounter *w, size_t max_w_len, bool only_alpha_num, int c_int, int (*fun)(wordcounter *, const char *, int)) {
+static int wc__file_word_apply(FILE *stream, wordcounter *w, size_t max_w_len,
+    bool only_alpha_num, int c_int, int (*fun)(
+    wordcounter *, const char *, int)) {
   size_t cur_buff_size = max_w_len == 0 ? WC__BUFSIZE_MIN : max_w_len;
   if (cur_buff_size > SIZE_MAX - 1) {
     return 1;
@@ -228,24 +237,24 @@ static int wc__file_word_apply(FILE *stream, wordcounter *w, size_t max_w_len, b
 // Fonctions pour wordcounter --------------------------------------------------
 
 wordcounter *wc_empty(bool filtered) {
-    wordcounter *w = malloc(sizeof *w);
-    if (w == NULL) {
-        return NULL;
-    }
-    w->counter = hashtable_empty((int (*)(const void *, const void *))strcmp,
+  wordcounter *w = malloc(sizeof *w);
+  if (w == NULL) {
+    return NULL;
+  }
+  w->counter = hashtable_empty((int (*)(const void *, const void *))strcmp,
       (size_t (*)(const void *))str_hashfun);
-    if (w->counter == NULL) {
-        free (w);
-        return NULL;
-    }
-    w->ha_word = holdall_empty();
-    if (w->ha_word == NULL) {
-        free(w->counter);
-        free(w);
-        return NULL;
-    }
-    w->filtered = filtered;
-    return w;
+  if (w->counter == NULL) {
+    free(w);
+    return NULL;
+  }
+  w->ha_word = holdall_empty();
+  if (w->ha_word == NULL) {
+    free(w->counter);
+    free(w);
+    return NULL;
+  }
+  w->filtered = filtered;
+  return w;
 }
 
 void wc_dispose(wordcounter **w) {
@@ -260,29 +269,33 @@ void wc_dispose(wordcounter **w) {
 }
 
 int wc_addcount(wordcounter *w, const char *s, int channel) {
-    word *p = hashtable_search(w->counter, s);
-    if (p != NULL) {
-        ++p->count;
-        if (p->channel != channel) {
-            p->channel = p->channel == UNDEFINED_CHANNEL ? channel : MULTI_CHANNEL;
-        }
-        return 0;
+  word *p = hashtable_search(w->counter, s);
+  if (p != NULL) {
+    ++p->count;
+    if (p->channel != channel) {
+      p->channel = p->channel == UNDEFINED_CHANNEL ? channel : MULTI_CHANNEL;
     }
-    if (w->filtered) {
-      return 0;
-    }
-    return wc__create_counter(w, s, channel) == NULL ? 1 : 0;
+    return 0;
+  }
+  if (w->filtered) {
+    return 0;
+  }
+  return wc__create_counter(w, s, channel) == NULL ? 1 : 0;
 }
 
-int wc_filecount(wordcounter *w, FILE *stream, size_t max_w_len, bool only_alpha_num, int channel) {
-    return wc__file_word_apply(stream, w, max_w_len, only_alpha_num, channel, wc_addcount);
+int wc_filecount(wordcounter *w, FILE *stream, size_t max_w_len,
+    bool only_alpha_num, int channel) {
+  return wc__file_word_apply(stream, w, max_w_len, only_alpha_num, channel,
+      wc_addcount);
 }
 
-int wc_file_add_filtered(wordcounter *w, FILE *stream, size_t max_w_len, bool only_alpha_num) {
+int wc_file_add_filtered(wordcounter *w, FILE *stream, size_t max_w_len,
+    bool only_alpha_num) {
   if (!w->filtered) {
     return 0;
   }
-  return wc__file_word_apply(stream, w, max_w_len, only_alpha_num, UNDEFINED_CHANNEL, wc__create_empty_counter);
+  return wc__file_word_apply(stream, w, max_w_len, only_alpha_num,
+      UNDEFINED_CHANNEL, wc__create_empty_counter);
 }
 
 void wc_sort_lexical(wordcounter *w) {

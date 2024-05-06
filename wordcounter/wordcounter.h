@@ -94,12 +94,14 @@ extern int wc_addcount(wordcounter *w, const char *s, int channel);
 //    lecture sur le flux stream.
 
 //  wc_filecount : applique wc_addcount(w, S, channel) à tous les mots S lus
-//    depuis le flux pointé par stream. 
-extern int wc_filecount(wordcounter *w, FILE *stream, size_t max_w_len, bool only_alpha_num, int channel);
+//    depuis le flux pointé par stream.
+extern int wc_filecount(wordcounter *w, FILE *stream, size_t max_w_len,
+    bool only_alpha_num, int channel);
 
 //  wc_file_add_filtered : sans effet si w n'est pas filtré. Sinon ajoute les
 //    mots lus dans le flux stream au filtre de w.
-extern int wc_file_add_filtered(wordcounter *w, FILE *stream, size_t max_w_len, bool only_alpha_num);
+extern int wc_file_add_filtered(wordcounter *w, FILE *stream, size_t max_w_len,
+    bool only_alpha_num);
 
 //  wc_sort_lexical : tri les mots en fonction de leur ordre lexicographique,
 //    donné par la fonction strcoll.
